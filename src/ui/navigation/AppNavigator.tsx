@@ -4,26 +4,33 @@ import { NavigationContainer } from '@react-navigation/native';
 
 import Dashboard from '../screens/Dashboard';
 import ImageCapture from '../screens/ImageCapture';
-import ProcessingScreen from '../screens/ProcessingScreen';
 import DataReview from '../screens/DataReview';
 import EncounterDetails from '../screens/EncounterDetails';
+import Processing from '../screens/Processing';
 
 export type RootStackParamList = {
   Dashboard: undefined;
   ImageCapture: {
     onPhotoTaken: (base64: string) => void;
   };
-  ProcessingScreen: {
-    onComplete: () => void;
-    onCancel: () => void;
-  };
   DataReview: {
     originalImage?: string;
     imageUri?: string;
     encounterData?: any;
+    batchImages?: Array<{
+      base64: string;
+      uri: string;
+    }>;
+    currentBatchIndex?: number;
   };
   EncounterDetails: {
     encounterId: string;
+  };
+  Processing: {
+    images: Array<{
+      base64: string;
+      uri: string;
+    }>;
   };
 };
 
@@ -41,16 +48,16 @@ const AppNavigator: React.FC = () => {
       >
         <Stack.Screen name="Dashboard" component={Dashboard} />
         <Stack.Screen name="ImageCapture" component={ImageCapture} />
+        <Stack.Screen name="DataReview" component={DataReview} />
+        <Stack.Screen name="EncounterDetails" component={EncounterDetails} />
         <Stack.Screen 
-          name="ProcessingScreen" 
-          component={ProcessingScreen}
+          name="Processing" 
+          component={Processing}
           options={{
-            cardStyle: { backgroundColor: '#1A1A1A' },
+            cardStyle: { backgroundColor: '#F5F7FA' },
             gestureEnabled: false,
           }}
         />
-        <Stack.Screen name="DataReview" component={DataReview} />
-        <Stack.Screen name="EncounterDetails" component={EncounterDetails} />
       </Stack.Navigator>
     </NavigationContainer>
   );

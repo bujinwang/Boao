@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput, Alert, useWindowDimensions } from 'react-native';
 import { PatientData } from '../../extraction/models/PatientData';
 import { EncounterData } from '../../extraction/models/EncounterData';
-import { BillingCodeSelector } from '../components/BillingCodeSelector';
+import BillingCodeSelector from '../components/BillingCodeSelector';
 import { BillingCode } from '../../extraction/models/BillingCodes';
 
 interface DataReviewProps {
@@ -11,6 +11,12 @@ interface DataReviewProps {
   patientData?: PatientData;
   encounterData?: EncounterData;
   originalImage?: string;
+  imageUri?: string;
+  batchImages?: Array<{
+    base64: string;
+    uri: string;
+  }>;
+  currentBatchIndex?: number;
 }
 
 type ModifierType = {
@@ -34,13 +40,13 @@ const TABLET_BREAKPOINT = 768; // Width threshold for tablet/desktop layout
 const DataReview: React.FC<DataReviewProps> = ({
   navigation,
   route,
-  patientData = {
+  patientData: initialPatientData = {
     fullName: 'John Doe',
     dateOfBirth: new Date('1980-01-15'),
     gender: 'Male',
     healthcareNumber: '123456789',
   },
-  encounterData = {
+  encounterData: initialEncounterData = {
     date: new Date('2023-06-10'),
     reason: 'Annual physical examination',
     diagnosis: ['Hypertension', 'Type 2 Diabetes'],
@@ -54,18 +60,22 @@ const DataReview: React.FC<DataReviewProps> = ({
         modifiedPrice: 102.60
       }
     ],
-    totalAmount: 102.60
+    totalAmount: 102.60,
+    status: 'pending'
   },
-  originalImage = '',
+  originalImage: initialOriginalImage,
+  imageUri: initialImageUri,
+  batchImages,
+  currentBatchIndex = 0,
 }) => {
   const { width } = useWindowDimensions();
   const isTablet = width >= TABLET_BREAKPOINT;
-  const [editedPatientData, setEditedPatientData] = useState<PatientData>(patientData);
-  const [editedEncounterData, setEncounterData] = useState<EncounterData>(encounterData);
-  const [localImage] = useState<string | null>(route?.params?.originalImage || originalImage || null);
+  const [editedPatientData, setEditedPatientData] = useState<PatientData>(initialPatientData);
+  const [editedEncounterData, setEncounterData] = useState<EncounterData>(initialEncounterData);
+  const [localImage] = useState<string | null>(initialImageUri || initialOriginalImage || null);
   const [showBillingSelector, setShowBillingSelector] = useState(false);
   const [selectedBillingCodes, setSelectedBillingCodes] = useState<BillingCode[]>(
-    (encounterData.billingCodes || []).map(code => ({
+    (initialEncounterData.billingCodes || []).map(code => ({
       ...code,
       category: 'GENERAL',
       timeEstimate: 15,
@@ -117,7 +127,7 @@ const DataReview: React.FC<DataReviewProps> = ({
     }));
 
     const updatedEncounterData: EncounterData = {
-      ...encounterData,
+      ...initialEncounterData,
       billingCodes: simpleBillingCodes,
       totalAmount,
     };
@@ -145,7 +155,7 @@ const DataReview: React.FC<DataReviewProps> = ({
     }));
 
     const updatedEncounterData: EncounterData = {
-      ...encounterData,
+      ...initialEncounterData,
       billingCodes: simpleBillingCodes,
       totalAmount,
     };
@@ -154,15 +164,18 @@ const DataReview: React.FC<DataReviewProps> = ({
 
   const handleSave = () => {
     // Save data and return to dashboard
-    navigation.navigate('Dashboard');
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Dashboard' }],
+    });
   };
 
   const handleCancel = () => {
-    navigation.goBack();
-  };
-
-  const handleBackToDashboard = () => {
-    navigation.navigate('Dashboard');
+    // Navigate to dashboard without saving
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Dashboard' }],
+    });
   };
 
   const formatDate = (date?: Date) => {
@@ -174,12 +187,31 @@ const DataReview: React.FC<DataReviewProps> = ({
     });
   };
 
+  const handleNextImage = () => {
+    if (batchImages && currentBatchIndex < batchImages.length - 1) {
+      navigation.replace('DataReview', {
+        originalImage: batchImages[currentBatchIndex + 1].base64,
+        imageUri: batchImages[currentBatchIndex + 1].uri,
+        batchImages,
+        currentBatchIndex: currentBatchIndex + 1,
+      });
+    }
+  };
+
+  const handlePreviousImage = () => {
+    if (batchImages && currentBatchIndex > 0) {
+      navigation.replace('DataReview', {
+        originalImage: batchImages[currentBatchIndex - 1].base64,
+        imageUri: batchImages[currentBatchIndex - 1].uri,
+        batchImages,
+        currentBatchIndex: currentBatchIndex - 1,
+      });
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBackToDashboard}>
-          <Text style={styles.backButtonText}>← Back to Dashboard</Text>
-        </TouchableOpacity>
         <Text style={styles.title}>Review Extracted Data</Text>
         <Text style={styles.subtitle}>Verify and correct information if needed</Text>
       </View>
@@ -404,13 +436,42 @@ const DataReview: React.FC<DataReviewProps> = ({
             )}
           </View>
         </View>
+
+        {/* Batch Navigation */}
+        {batchImages && (
+          <View style={styles.batchNavigation}>
+            <TouchableOpacity 
+              style={[styles.batchNavButton, currentBatchIndex === 0 && styles.batchNavButtonDisabled]}
+              onPress={handlePreviousImage}
+              disabled={currentBatchIndex === 0}
+            >
+              <Text style={[styles.batchNavButtonText, currentBatchIndex === 0 && styles.batchNavButtonTextDisabled]}>
+                Previous
+              </Text>
+            </TouchableOpacity>
+            
+            <Text style={styles.batchCounter}>
+              Image {currentBatchIndex + 1} of {batchImages.length}
+            </Text>
+            
+            <TouchableOpacity 
+              style={[styles.batchNavButton, currentBatchIndex === batchImages.length - 1 && styles.batchNavButtonDisabled]}
+              onPress={handleNextImage}
+              disabled={currentBatchIndex === batchImages.length - 1}
+            >
+              <Text style={[styles.batchNavButtonText, currentBatchIndex === batchImages.length - 1 && styles.batchNavButtonTextDisabled]}>
+                Next
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <BillingCodeSelector
         visible={showBillingSelector}
         onClose={() => setShowBillingSelector(false)}
         onSelect={handleBillingCodeSelect}
-        currentDiagnosis={encounterData.diagnosis}
+        currentDiagnosis={initialEncounterData.diagnosis}
         currentCodes={selectedBillingCodes}
       />
     </ScrollView>
@@ -523,25 +584,35 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 30,
     marginBottom: 20,
+    gap: 15,
   },
   saveButton: {
     backgroundColor: '#1976D2',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 5,
+    flex: 1,
   },
   saveButtonText: {
     fontSize: 16,
     color: 'white',
     fontWeight: '500',
+    textAlign: 'center',
   },
   cancelButton: {
+    backgroundColor: 'white',
     paddingVertical: 10,
     paddingHorizontal: 20,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#1976D2',
+    flex: 1,
   },
   cancelButtonText: {
     fontSize: 16,
-    color: '#666666',
+    color: '#1976D2',
+    fontWeight: '500',
+    textAlign: 'center',
   },
   section: {
     marginBottom: 20,
@@ -550,40 +621,53 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
   addButton: {
     backgroundColor: '#1976D2',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 5,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
   },
   addButtonText: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
+    marginLeft: 4,
   },
   billingCodeItem: {
-    width: '48%',
-    backgroundColor: '#f5f5f5',
+    width: '100%',
+    backgroundColor: '#f8f9fa',
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 10,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   billingCodeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   billingCode: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#1976D2',
   },
   billingDescription: {
     fontSize: 14,
-    color: '#666666',
-    marginTop: 2,
+    color: '#495057',
+    marginBottom: 12,
   },
   removeButton: {
     padding: 5,
@@ -594,44 +678,49 @@ const styles = StyleSheet.create({
   },
   billingDetails: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    paddingTop: 10,
+    alignItems: 'center',
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#ddd',
+    borderTopColor: '#e9ecef',
   },
   basePrice: {
+    flex: 1,
     fontSize: 14,
-    color: '#666666',
+    color: '#495057',
   },
   modifier: {
+    flex: 1,
     fontSize: 14,
-    color: '#4CAF50',
+    color: '#2E7D32',
     fontWeight: '500',
+    textAlign: 'center',
   },
   modifiedPrice: {
+    flex: 1,
     fontSize: 14,
-    color: '#4CAF50',
-    fontWeight: '500',
+    color: '#2E7D32',
+    fontWeight: '600',
+    textAlign: 'right',
   },
   totalSection: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     marginTop: 20,
-    paddingTop: 15,
-    borderTopWidth: 2,
-    borderTopColor: '#ddd',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#dee2e6',
   },
   totalLabel: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#333',
+    color: '#212529',
+    marginRight: 12,
   },
   totalAmount: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#4CAF50',
+    fontWeight: '600',
+    color: '#2E7D32',
   },
   twoColumnLayout: {
     flexDirection: 'row',
@@ -646,6 +735,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+  },
+  batchNavigation: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+  },
+  batchNavButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#4285F4',
+    borderRadius: 4,
+  },
+  batchNavButtonDisabled: {
+    backgroundColor: '#E8EAED',
+  },
+  batchNavButtonText: {
+    color: 'white',
+    fontWeight: '500',
+  },
+  batchNavButtonTextDisabled: {
+    color: '#9AA0A6',
+  },
+  batchCounter: {
+    fontSize: 14,
+    color: '#5F6368',
+    fontWeight: '500',
   },
 });
 

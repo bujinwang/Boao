@@ -17,23 +17,55 @@ import {
   BillingCode, 
   BillingModifier, 
   BILLING_CATEGORIES, 
-  BILLING_MODIFIERS, 
-  COMMON_BILLING_CODES,
+  BILLING_MODIFIERS,
   suggestCodesForDiagnosis,
   suggestRelatedCodes,
   getApplicableModifiers,
   calculateTimeModifier
 } from '../../extraction/models/BillingCodes';
 import { SvgXml } from 'react-native-svg';
-import { 
-  allIconSvg, 
-  consultIconSvg, 
-  procedureIconSvg, 
-  diagnosticIconSvg, 
-  premiumIconSvg,
-  starIconSvg,
-  trendingIconSvg
-} from '../../assets/icons';
+
+// Define SVG icons inline since the icons.ts file is missing
+const allIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+  <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+  <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+  <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+</svg>`;
+
+const consultIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M20 11V17C20 18.1046 19.1046 19 18 19H6C4.89543 19 4 18.1046 4 17V7C4 5.89543 4.89543 5 6 5H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  <path d="M9 9L7 11L9 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M15 9L17 11L15 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12 8L12 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+</svg>`;
+
+const procedureIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  <path d="M4 12H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+</svg>`;
+
+const diagnosticIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M4 5.5H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  <path d="M4 9.5H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  <path d="M4 13.5H10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  <path d="M4 17.5H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="18" cy="16" r="4" stroke="currentColor" stroke-width="2"/>
+</svg>`;
+
+const premiumIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 3L14.5 8.5L21 9.5L16.5 14L17.5 20.5L12 17.5L6.5 20.5L7.5 14L3 9.5L9.5 8.5L12 3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+</svg>`;
+
+const starIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="currentColor"/>
+</svg>`;
+
+const trendingIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M3 17L9 11L13 15L21 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M15 7H21V13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
 
 interface BillingCodeSelectorProps {
   onSelect: (code: BillingCode) => void;
@@ -61,7 +93,127 @@ const categories: CategoryData[] = [
   { name: 'Consult', icon: consultIconSvg, personalUsage: 45, systemUsage: 1250 },
   { name: 'Procedure', icon: procedureIconSvg, personalUsage: 32, systemUsage: 890 },
   { name: 'Diagnostic', icon: diagnosticIconSvg, personalUsage: 28, systemUsage: 760 },
-  { name: 'Premium', icon: premiumIconSvg, personalUsage: 15, systemUsage: 320 },
+  { name: 'Premium', icon: premiumIconSvg, personalUsage: 15, systemUsage: 320 }
+];
+
+const COMMON_BILLING_CODES: BillingCode[] = [
+  // Consult Category
+  {
+    code: 'C101',
+    description: 'Initial consultation',
+    basePrice: 120.00,
+    category: 'Consult',
+    timeEstimate: 30,
+    complexity: 'medium',
+    commonDiagnoses: ['New Patient', 'General Assessment'],
+    relatedCodes: ['C102', 'C103']
+  },
+  {
+    code: 'C102',
+    description: 'Follow-up consultation',
+    basePrice: 75.50,
+    category: 'Consult',
+    timeEstimate: 20,
+    complexity: 'low',
+    commonDiagnoses: ['Follow-up', 'Medication Review'],
+    relatedCodes: ['C101']
+  },
+  {
+    code: 'C103',
+    description: 'Complex consultation',
+    basePrice: 180.00,
+    category: 'Consult',
+    timeEstimate: 45,
+    complexity: 'high',
+    commonDiagnoses: ['Multiple Chronic Conditions', 'Complex Care'],
+    relatedCodes: ['C101']
+  },
+
+  // Procedure Category
+  {
+    code: 'P201',
+    description: 'Minor surgical procedure',
+    basePrice: 150.00,
+    category: 'Procedure',
+    timeEstimate: 40,
+    complexity: 'medium',
+    commonDiagnoses: ['Skin Lesion', 'Wound Care'],
+    relatedCodes: ['P202']
+  },
+  {
+    code: 'P202',
+    description: 'Wound dressing',
+    basePrice: 65.00,
+    category: 'Procedure',
+    timeEstimate: 15,
+    complexity: 'low',
+    commonDiagnoses: ['Wound Care', 'Post-surgical Care'],
+    relatedCodes: ['P201']
+  },
+  {
+    code: 'P203',
+    description: 'Complex surgical procedure',
+    basePrice: 250.00,
+    category: 'Procedure',
+    timeEstimate: 60,
+    complexity: 'high',
+    commonDiagnoses: ['Complex Wound', 'Surgical Intervention'],
+    relatedCodes: ['P201', 'P202']
+  },
+
+  // Diagnostic Category
+  {
+    code: 'D301',
+    description: 'Basic diagnostic assessment',
+    basePrice: 85.00,
+    category: 'Diagnostic',
+    timeEstimate: 25,
+    complexity: 'low',
+    commonDiagnoses: ['General Screening', 'Preventive Care'],
+    relatedCodes: ['D302']
+  },
+  {
+    code: 'D302',
+    description: 'Comprehensive diagnostic workup',
+    basePrice: 165.00,
+    category: 'Diagnostic',
+    timeEstimate: 45,
+    complexity: 'medium',
+    commonDiagnoses: ['Complex Symptoms', 'Multiple Systems Review'],
+    relatedCodes: ['D301', 'D303']
+  },
+  {
+    code: 'D303',
+    description: 'Advanced diagnostic evaluation',
+    basePrice: 225.00,
+    category: 'Diagnostic',
+    timeEstimate: 60,
+    complexity: 'high',
+    commonDiagnoses: ['Rare Conditions', 'Diagnostic Challenges'],
+    relatedCodes: ['D302']
+  },
+
+  // Premium Category
+  {
+    code: 'PR401',
+    description: 'Premium health assessment',
+    basePrice: 300.00,
+    category: 'Premium',
+    timeEstimate: 90,
+    complexity: 'high',
+    commonDiagnoses: ['Executive Health', 'Comprehensive Screening'],
+    relatedCodes: ['PR402']
+  },
+  {
+    code: 'PR402',
+    description: 'Premium follow-up care',
+    basePrice: 200.00,
+    category: 'Premium',
+    timeEstimate: 45,
+    complexity: 'medium',
+    commonDiagnoses: ['Follow-up Care', 'Health Monitoring'],
+    relatedCodes: ['PR401']
+  }
 ];
 
 const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
@@ -72,7 +224,7 @@ const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
   currentCodes
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [favoriteCodes, setFavoriteCodes] = useState<string[]>([]);
   const [showModifierModal, setShowModifierModal] = useState(false);
   const [selectedCode, setSelectedCode] = useState<BillingCode | null>(null);
@@ -93,7 +245,7 @@ const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
       const suggestions = diagnoses.flatMap(diagnosis => suggestCodesForDiagnosis(diagnosis));
       if (suggestions.length > 0) {
         setSearchQuery(''); // Clear any existing search
-        setSelectedCategory(null); // Clear category filter
+        setSelectedCategory('All'); // Clear category filter
       }
     }
   }, [currentDiagnosis, showSuggestions]);
@@ -122,6 +274,10 @@ const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
     }
   };
 
+  const handleComplexityChange = (complexity: 'low' | 'medium' | 'high' | null) => {
+    setComplexityFilter(complexity === complexityFilter ? null : complexity);
+  };
+
   const getFilteredCodes = () => {
     let codes = [...COMMON_BILLING_CODES];
 
@@ -135,7 +291,7 @@ const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
     }
 
     // Filter by category
-    if (selectedCategory) {
+    if (selectedCategory !== 'All') {
       codes = codes.filter(code => code.category === selectedCategory);
     }
 
@@ -147,20 +303,15 @@ const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
     // Add suggestions based on current diagnosis
     if (currentDiagnosis && showSuggestions) {
       const diagnoses = Array.isArray(currentDiagnosis) ? currentDiagnosis : [currentDiagnosis];
-      const suggestions = diagnoses.flatMap(diagnosis => suggestCodesForDiagnosis(diagnosis));
-      codes = [...suggestions, ...codes.filter(code => 
-        !suggestions.some(s => s.code === code.code)
-      )];
-    }
-
-    // Add related codes if there are current codes
-    if (currentCodes?.length && showSuggestions) {
-      const relatedCodes = currentCodes.flatMap(code => 
-        suggestRelatedCodes(code.code)
-      );
-      codes = [...relatedCodes, ...codes.filter(code =>
-        !relatedCodes.some(r => r.code === code.code)
-      )];
+      codes = codes.sort((a, b) => {
+        const aHasMatch = a.commonDiagnoses?.some(d => 
+          diagnoses.some(diagnosis => d.toLowerCase().includes(diagnosis.toLowerCase()))
+        ) ?? false;
+        const bHasMatch = b.commonDiagnoses?.some(d => 
+          diagnoses.some(diagnosis => d.toLowerCase().includes(diagnosis.toLowerCase()))
+        ) ?? false;
+        return (bHasMatch ? 1 : 0) - (aHasMatch ? 1 : 0);
+      });
     }
 
     return codes;
@@ -232,7 +383,7 @@ const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
                 styles.complexityBadge,
                 complexityStyles[item.complexity]
               ]}>
-                <Text style={styles.complexityText}>{item.complexity}</Text>
+                <Text style={styles.complexityBadgeText}>{item.complexity}</Text>
               </View>
             )}
           </View>
@@ -372,24 +523,45 @@ const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
           <View style={styles.filterSection}>
             <View style={styles.filterRow}>
               <Text style={styles.filterLabel}>Show Suggestions</Text>
-              <TouchableOpacity 
-                style={[styles.toggle, showSuggestions && styles.toggleActive]}
-                onPress={() => setShowSuggestions(!showSuggestions)}
-              >
-                <View style={[styles.toggleHandle, showSuggestions && styles.toggleHandleActive]} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.complexityButton}>
-                <Text style={styles.complexityText}>Any Complexity</Text>
-              </TouchableOpacity>
+              <Switch
+                value={showSuggestions}
+                onValueChange={setShowSuggestions}
+                trackColor={{ false: '#767577', true: '#81b0ff' }}
+                thumbColor={showSuggestions ? '#1976D2' : '#f4f3f4'}
+              />
+              <View style={styles.complexityFilters}>
+                <TouchableOpacity
+                  style={[
+                    styles.complexityButton,
+                    complexityFilter === 'low' && styles.complexityButtonActive,
+                    { backgroundColor: '#E8F5E9' }
+                  ]}
+                  onPress={() => handleComplexityChange('low')}
+                >
+                  <Text style={styles.complexityButtonText}>Low</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.complexityButton,
+                    complexityFilter === 'medium' && styles.complexityButtonActive,
+                    { backgroundColor: '#FFF3E0' }
+                  ]}
+                  onPress={() => handleComplexityChange('medium')}
+                >
+                  <Text style={styles.complexityButtonText}>Medium</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.complexityButton,
+                    complexityFilter === 'high' && styles.complexityButtonActive,
+                    { backgroundColor: '#FFEBEE' }
+                  ]}
+                  onPress={() => handleComplexityChange('high')}
+                >
+                  <Text style={styles.complexityButtonText}>High</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoryContainer}
-            >
-              {categories.map(renderCategoryButton)}
-            </ScrollView>
           </View>
         </View>
 
@@ -507,35 +679,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  toggle: {
-    width: 51,
-    height: 31,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 15.5,
-    padding: 2,
-  },
-  toggleActive: {
-    backgroundColor: '#4CAF50',
-  },
-  toggleHandle: {
-    width: 27,
-    height: 27,
-    backgroundColor: 'white',
-    borderRadius: 13.5,
-  },
-  toggleHandleActive: {
-    transform: [{ translateX: 20 }],
+  complexityFilters: {
+    flexDirection: 'row',
+    marginLeft: 16,
+    gap: 8,
   },
   complexityButton: {
-    backgroundColor: '#F0F7FF',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  complexityText: {
-    color: '#2196F3',
-    fontSize: 14,
+  complexityButtonActive: {
+    borderColor: '#1976D2',
+  },
+  complexityButtonText: {
+    fontSize: 12,
     fontWeight: '500',
+    color: '#333',
   },
   categoryContainer: {
     flexDirection: 'row',
@@ -721,7 +883,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginLeft: 8,
   },
-  complexityText: {
+  complexityBadgeText: {
     fontSize: 12,
     fontWeight: '500',
   },
@@ -767,4 +929,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default BillingCodeSelector; 
+export default BillingCodeSelector;

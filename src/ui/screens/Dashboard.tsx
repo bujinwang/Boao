@@ -30,6 +30,11 @@ const flagIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"
   <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z" fill="currentColor"/>
 </svg>`;
 
+const batchIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM19 19H5V5H19V19Z" fill="currentColor"/>
+  <path d="M7 7H17V9H7V7ZM7 11H17V13H7V11ZM7 15H13V17H7V15Z" fill="currentColor"/>
+</svg>`;
+
 interface BillingCode {
   code: string;
   description: string;
@@ -63,6 +68,7 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
   const { width, height } = useWindowDimensions();
   const isSmallScreen = width < 375;
   const isMediumScreen = width >= 375 && width < 428;
+  const isTablet = width >= 768; // iPad breakpoint
   
   // Scale factors based on screen size
   const scale = isSmallScreen ? 0.9 : isMediumScreen ? 1 : 1.1;
@@ -163,22 +169,148 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
       totalAmount: 75.00,
       hasMatchingRecord: true,
     },
+    {
+      id: '5',
+      patientName: 'Robert Chen',
+      date: '10/11/2023',
+      ahn: '5678-9012-3456-7890',
+      dateOfBirth: '1992-05-15',
+      billingCodes: [
+        {
+          code: 'J30.1',
+          description: 'Allergic rhinitis due to pollen',
+          basePrice: 55.00,
+          modifier: 'CMGP',
+          modifiedPrice: 66.00
+        }
+      ],
+      status: 'pending',
+      diagnosis: ['Seasonal allergies'],
+      procedures: ['Allergy assessment'],
+      reason: 'Allergy symptoms',
+      totalAmount: 66.00,
+      hasMatchingRecord: true,
+    },
+    {
+      id: '6',
+      patientName: 'Maria Garcia',
+      date: '10/10/2023',
+      ahn: '6789-0123-4567-8901',
+      dateOfBirth: '1988-09-20',
+      billingCodes: [
+        {
+          code: 'O26.821',
+          description: 'Pregnancy examination',
+          basePrice: 120.00,
+          modifier: 'COMP',
+          modifiedPrice: 162.00
+        }
+      ],
+      status: 'confirmed',
+      diagnosis: ['Normal pregnancy'],
+      procedures: ['Prenatal checkup'],
+      reason: 'Routine pregnancy visit',
+      totalAmount: 162.00,
+      hasMatchingRecord: true,
+    },
+    {
+      id: '7',
+      patientName: 'David Kim',
+      date: '10/09/2023',
+      ahn: '7890-1234-5678-9012',
+      dateOfBirth: '1995-12-03',
+      billingCodes: [
+        {
+          code: 'S93.401',
+          description: 'Ankle sprain',
+          basePrice: 85.00,
+          modifier: 'URGN',
+          modifiedPrice: 110.50
+        }
+      ],
+      status: 'pending',
+      diagnosis: ['Ankle sprain'],
+      procedures: ['Physical examination', 'X-ray'],
+      reason: 'Sports injury',
+      totalAmount: 110.50,
+      hasMatchingRecord: false,
+    },
+    {
+      id: '8',
+      patientName: 'Lisa Thompson',
+      date: '10/08/2023',
+      ahn: '8901-2345-6789-0123',
+      dateOfBirth: '1972-07-18',
+      billingCodes: [
+        {
+          code: 'G43.909',
+          description: 'Migraine, unspecified',
+          basePrice: 95.00,
+          modifier: 'CALL',
+          modifiedPrice: 118.75
+        }
+      ],
+      status: 'confirmed',
+      diagnosis: ['Chronic migraine'],
+      procedures: ['Neurological examination'],
+      reason: 'Severe headache',
+      totalAmount: 118.75,
+      hasMatchingRecord: true,
+    },
+    {
+      id: '9',
+      patientName: 'James Wilson',
+      date: '10/07/2023',
+      ahn: '9012-3456-7890-1234',
+      dateOfBirth: '1968-04-25',
+      billingCodes: [
+        {
+          code: 'K21.9',
+          description: 'GERD without esophagitis',
+          basePrice: 75.50,
+          modifier: 'CMGP',
+          modifiedPrice: 90.60
+        }
+      ],
+      status: 'pending',
+      diagnosis: ['GERD'],
+      procedures: ['Upper GI evaluation'],
+      reason: 'Digestive issues',
+      totalAmount: 90.60,
+      hasMatchingRecord: true,
+    },
+    {
+      id: '10',
+      patientName: 'Amanda Lee',
+      date: '10/06/2023',
+      ahn: '0123-4567-8901-2345',
+      dateOfBirth: '1983-02-14',
+      billingCodes: [
+        {
+          code: 'F41.1',
+          description: 'Generalized anxiety disorder',
+          basePrice: 110.00,
+          modifier: 'COMP',
+          modifiedPrice: 148.50
+        }
+      ],
+      status: 'confirmed',
+      diagnosis: ['Generalized anxiety disorder'],
+      procedures: ['Psychiatric evaluation'],
+      reason: 'Mental health assessment',
+      totalAmount: 148.50,
+      hasMatchingRecord: true,
+    }
   ]);
 
   const handleCapturePress = () => {
     navigation.navigate('ImageCapture', {
       onPhotoTaken: (base64: string) => {
-        navigation.navigate('ProcessingScreen', {
-          onComplete: () => {
-            navigation.navigate('DataReview', { 
-              originalImage: base64,
-              imageUri: `data:image/jpeg;base64,${base64}`
-            });
-          },
-          onCancel: () => {
-            navigation.goBack();
-          }
-        });
+        const images = [{
+          base64,
+          uri: `data:image/jpeg;base64,${base64}`
+        }];
+        navigation.navigate('Processing', { images });
       }
     });
   };
@@ -201,22 +333,44 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
         if (asset.base64) {
-          navigation.navigate('ProcessingScreen', {
-            onComplete: () => {
-              navigation.navigate('DataReview', { 
-                originalImage: asset.base64,
-                imageUri: `data:image/jpeg;base64,${asset.base64}`
-              });
-            },
-            onCancel: () => {
-              navigation.goBack();
-            }
-          });
+          const images = [{
+            base64: asset.base64,
+            uri: `data:image/jpeg;base64,${asset.base64}`
+          }];
+          navigation.navigate('Processing', { images });
         }
       }
     } catch (error) {
       console.error('Error picking image:', error);
       Alert.alert('Error', 'Failed to import image. Please try again.');
+    }
+  };
+
+  const handleBatchPress = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Sorry, we need camera roll permissions to import images.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        quality: 1,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const images = result.assets.map(asset => ({
+          base64: asset.base64,
+          uri: `data:image/jpeg;base64,${asset.base64}`
+        }));
+        navigation.navigate('Processing', { images });
+      }
+    } catch (error) {
+      console.error('Error picking images:', error);
+      Alert.alert('Error', 'Failed to import images. Please try again.');
     }
   };
 
@@ -274,17 +428,6 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
   const renderRightActions = (item: ActivityItem) => {
     return (
       <View style={styles.rightActions}>
-        {item.status === 'pending' && (
-          <TouchableOpacity 
-            style={[styles.swipeActionButton, styles.approveButton]}
-            onPress={() => handleApprove(item.id)}
-          >
-            <View style={styles.swipeActionContent}>
-              <SvgXml xml={approveIconSvg} width={24} height={24} color="#fff" />
-              <Text style={styles.swipeActionText}>Approve</Text>
-            </View>
-          </TouchableOpacity>
-        )}
         <TouchableOpacity 
           style={[styles.swipeActionButton, styles.editButton]}
           onPress={() => handleActivityPress(item)}
@@ -308,15 +451,17 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
   };
 
   const renderLeftActions = (item: ActivityItem) => {
+    if (item.status !== 'pending') return null;
+    
     return (
       <View style={styles.leftActions}>
         <TouchableOpacity 
-          style={[styles.swipeActionButton, styles.flagButton]}
-          onPress={() => handleFlag(item.id)}
+          style={[styles.swipeActionButton, styles.approveButton]}
+          onPress={() => handleApprove(item.id)}
         >
           <View style={styles.swipeActionContent}>
-            <SvgXml xml={flagIconSvg} width={24} height={24} color="#fff" />
-            <Text style={styles.swipeActionText}>Flag</Text>
+            <SvgXml xml={approveIconSvg} width={24} height={24} color="#fff" />
+            <Text style={styles.swipeActionText}>Approve</Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -422,26 +567,40 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
 
       {/* Quick Actions Section */}
       <View style={[styles.quickActionsContainer, { padding: 20 * scale }]}>
-        <TouchableOpacity style={styles.quickActionButton} onPress={handleCapturePress}>
+        <TouchableOpacity style={[styles.quickActionButton, { backgroundColor: '#4285F4' }]} onPress={handleCapturePress}>
           <SvgXml xml={cameraIconSvg} width={24 * scale} height={24 * scale} color="#fff" />
           <Text style={[styles.quickActionText, { fontSize: 16 * scale }]}>Capture</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.quickActionButton} onPress={handleImportPress}>
+        <TouchableOpacity style={[styles.quickActionButton, { backgroundColor: '#34A853' }]} onPress={handleImportPress}>
           <SvgXml xml={importIconSvg} width={24 * scale} height={24 * scale} color="#fff" />
           <Text style={[styles.quickActionText, { fontSize: 16 * scale }]}>Import</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.quickActionButton, { backgroundColor: '#FBBC05' }]} onPress={handleBatchPress}>
+          <SvgXml xml={batchIconSvg} width={24 * scale} height={24 * scale} color="#fff" />
+          <Text style={[styles.quickActionText, { fontSize: 16 * scale }]}>Batch</Text>
         </TouchableOpacity>
       </View>
 
       {/* Recent Activity Section */}
       <View style={[styles.recentActivityContainer, { padding: 20 * scale }]}>
-        <Text style={[styles.sectionTitle, { fontSize: 20 * scale }]}>Recent Activity</Text>
-        <ScrollView style={styles.activityList}>
+        <Text style={[styles.sectionTitle, { fontSize: 20 * scale }]}>Recent Encounters</Text>
+        <ScrollView 
+          style={styles.activityList}
+          contentContainerStyle={[
+            styles.activityListContent,
+            isTablet && styles.activityListContentTablet
+          ]}
+        >
           {activityItems.map((item) => (
             <Swipeable
               key={item.id}
               renderRightActions={() => renderRightActions(item)}
               renderLeftActions={() => renderLeftActions(item)}
+              containerStyle={[
+                isTablet && styles.swipeableContainerTablet
+              ]}
             >
               {renderActivityItem(item)}
             </Swipeable>
@@ -486,94 +645,131 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#F5F7FA',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#1A1A1A',
+    backgroundColor: 'white',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
   },
   title: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#1A1A1A',
   },
   profileIcon: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    backgroundColor: '#333',
+    backgroundColor: '#1976D2',
     justifyContent: 'center',
     alignItems: 'center',
   },
   profileText: {
-    color: '#fff',
-    fontWeight: '500',
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   quickActionsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#1A1A1A',
+    justifyContent: 'space-between',
+    padding: 20,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
   },
   quickActionButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    width: '30%',
+    justifyContent: 'center',
   },
   quickActionText: {
-    color: '#fff',
-    marginTop: 8,
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '500',
+    marginLeft: 8,
   },
   recentActivityContainer: {
     flex: 1,
+    padding: 20,
   },
   sectionTitle: {
-    fontWeight: 'bold',
-    color: '#fff',
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1A1A1A',
     marginBottom: 16,
   },
   activityList: {
     flex: 1,
   },
+  activityListContent: {
+    paddingBottom: 20,
+  },
+  activityListContentTablet: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  swipeableContainerTablet: {
+    width: '48.5%', // Leave some gap between columns
+  },
   activityItem: {
     backgroundColor: 'white',
-    borderRadius: 8,
-    marginHorizontal: 15,
-    marginBottom: 10,
-    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#EEEEEE',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   activityHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
   activityHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flex: 1,
   },
   patientNameContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
+    marginBottom: 4,
   },
   patientName: {
+    fontSize: 16,
     fontWeight: '600',
-    color: '#333333',
-    marginRight: 10,
+    color: '#1A1A1A',
   },
   date: {
+    fontSize: 14,
     color: '#666666',
   },
   activityHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
   },
   status: {
+    fontSize: 12,
     fontWeight: '500',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
-    marginRight: 8,
   },
   statusConfirmed: {
     backgroundColor: '#E8F5E9',
@@ -584,7 +780,7 @@ const styles = StyleSheet.create({
     color: '#E65100',
   },
   flagIndicator: {
-    padding: 4,
+    marginTop: 4,
   },
   flagText: {
     fontSize: 16,
@@ -592,133 +788,109 @@ const styles = StyleSheet.create({
   activityContent: {
     borderTopWidth: 1,
     borderTopColor: '#EEEEEE',
-    paddingTop: 8,
+    paddingTop: 12,
   },
   activityRow: {
     flexDirection: 'row',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   label: {
+    width: 100,
+    fontSize: 14,
     color: '#666666',
-    width: 80,
   },
   value: {
     flex: 1,
-    color: '#333333',
+    fontSize: 14,
+    color: '#1A1A1A',
   },
   billingSummary: {
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#EEEEEE',
   },
   billingCodes: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   billingCode: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#F5F7FA',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginRight: 8,
-    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginBottom: 8,
   },
   billingCodeText: {
+    fontSize: 14,
     color: '#1976D2',
-    marginRight: 8,
+    fontWeight: '500',
   },
   billingAmount: {
-    color: '#4CAF50',
+    fontSize: 14,
+    color: '#2E7D32',
     fontWeight: '500',
   },
   totalAmount: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#EEEEEE',
   },
   totalLabel: {
+    fontSize: 14,
     color: '#666666',
     marginRight: 8,
   },
   totalValue: {
+    fontSize: 16,
     fontWeight: '600',
-    color: '#4CAF50',
-  },
-  rightActions: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    height: '100%',
-    width: 240,
-  },
-  leftActions: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    height: '100%',
-    width: 80,
-  },
-  swipeActionButton: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100%',
-  },
-  swipeActionContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  swipeActionText: {
-    color: '#fff',
-    marginTop: 4,
-  },
-  editButton: {
-    backgroundColor: '#1976D2',
-  },
-  deleteButton: {
-    backgroundColor: '#F44336',
-  },
-  flagButton: {
-    backgroundColor: '#FFC107',
-  },
-  approveButton: {
-    backgroundColor: '#4CAF50',
+    color: '#2E7D32',
   },
   statsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
+    paddingBottom: 100,
   },
   statWidget: {
+    flex: 1,
     backgroundColor: 'white',
     borderRadius: 12,
-    width: '48%',
-    height: 180,
+    padding: 16,
+    marginHorizontal: 6,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   statTitle: {
-    fontWeight: '500',
-    color: '#333333',
-    marginBottom: 15,
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 8,
   },
   statAmount: {
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '600',
     color: '#1976D2',
-    marginBottom: 10,
+    marginBottom: 4,
   },
   pendingAmount: {
     color: '#FFC107',
   },
   statComparison: {
+    fontSize: 12,
     color: '#4CAF50',
   },
   statText: {
+    fontSize: 12,
     color: '#666666',
   },
   navbar: {
@@ -730,25 +902,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 5,
+    height: 80,
+    borderTopWidth: 1,
+    borderTopColor: '#EEEEEE',
+    paddingBottom: 20,
   },
   navItem: {
     alignItems: 'center',
     justifyContent: 'center',
+    height: '100%',
+    paddingTop: 12,
   },
   activeIndicator: {
+    position: 'absolute',
+    top: 0,
+    width: 20,
+    height: 3,
     backgroundColor: '#1976D2',
     borderRadius: 1.5,
-    position: 'absolute',
-    top: -10,
   },
   navText: {
+    marginTop: 4,
+    fontSize: 12,
     color: '#666666',
-    marginTop: 5,
   },
   activeNavText: {
     color: '#1976D2',
@@ -761,12 +937,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    gap: 4,
   },
   newPatientIcon: {
-    fontSize: 14,
+    fontSize: 12,
+    marginRight: 4,
   },
   newPatientText: {
+    fontSize: 12,
     color: '#E65100',
     fontWeight: '500',
   },
@@ -777,14 +954,49 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    gap: 4,
   },
   returningPatientIcon: {
-    fontSize: 14,
+    fontSize: 12,
+    marginRight: 4,
   },
   returningPatientText: {
+    fontSize: 12,
     color: '#2E7D32',
     fontWeight: '500',
+  },
+  rightActions: {
+    flexDirection: 'row',
+    height: '100%',
+  },
+  leftActions: {
+    flexDirection: 'row',
+    height: '100%',
+    width: 80,
+    backgroundColor: '#4CAF50',
+  },
+  swipeActionButton: {
+    width: 80,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  swipeActionContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swipeActionText: {
+    color: 'white',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  editButton: {
+    backgroundColor: '#1976D2',
+  },
+  deleteButton: {
+    backgroundColor: '#F44336',
+  },
+  approveButton: {
+    backgroundColor: '#4CAF50',
   },
 });
 
