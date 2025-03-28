@@ -13,16 +13,16 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { 
-  BillingCode, 
-  BillingModifier, 
-  BILLING_CATEGORIES, 
+import {
+  BillingCode,
+  BillingModifier,
+  BILLING_CATEGORIES,
   BILLING_MODIFIERS,
   suggestCodesForDiagnosis,
   suggestRelatedCodes,
   getApplicableModifiers,
   calculateTimeModifier
-} from '../../extraction/models/BillingCodes';
+} from '../extraction/models/BillingCodes';
 import { SvgXml } from 'react-native-svg';
 
 // Define SVG icons inline since the icons.ts file is missing

@@ -441,6 +441,19 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
     console.log('Flag encounter:', id);
   };
 
+  const calculateAge = (dateOfBirth: string): number => {
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    return age;
+  };
+
   const renderRightActions = (item: ActivityItem) => {
     return (
       <View style={styles.rightActions}>
@@ -485,86 +498,55 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
   };
 
   const renderActivityItem = (item: ActivityItem) => {
+    const billingCodesText = item.billingCodes
+      .map(code => `${code.code}${code.modifier ? ` (${code.modifier})` : ''}`)
+      .join(', ');
+
     return (
       <TouchableOpacity 
         style={styles.activityItem}
         onPress={() => handleActivityPress(item)}
         activeOpacity={0.7}
       >
-        <View style={styles.activityHeader}>
-          <View style={styles.activityHeaderLeft}>
-            <View style={styles.patientNameContainer}>
-              <Text style={styles.patientName}>{item.patientName}</Text>
-              {item.hasMatchingRecord ? (
-                <View style={styles.returningPatientBadge}>
-                  <Text style={styles.returningPatientIcon}>✓</Text>
-                  <Text style={styles.returningPatientText}>Existing Patient</Text>
-                </View>
-              ) : (
-                <View style={styles.newPatientBadge}>
-                  <Text style={styles.newPatientIcon}>⚠️</Text>
-                  <Text style={styles.newPatientText}>New Patient</Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.date}>{item.date}</Text>
-          </View>
-          <View style={styles.activityHeaderRight}>
-            <Text style={[
-              styles.status,
-              item.status === 'confirmed' ? styles.statusConfirmed : styles.statusPending
-            ]}>
-              {item.status.toUpperCase()}
-            </Text>
-            {item.isFlagged && (
-              <View style={styles.flagIndicator}>
-                <Text style={styles.flagText}>⚠️</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
         <View style={styles.activityContent}>
-          <View style={styles.activityRow}>
-            <Text style={styles.label}>AHN:</Text>
-            <Text style={styles.value}>{item.ahn}</Text>
-          </View>
-          <View style={styles.activityRow}>
-            <Text style={styles.label}>DOB:</Text>
-            <Text style={styles.value}>{item.dateOfBirth}</Text>
-          </View>
-          <View style={styles.activityRow}>
-            <Text style={styles.label}>Reason:</Text>
-            <Text style={styles.value}>{item.reason}</Text>
-          </View>
-          
-          <View style={styles.activityRow}>
-            <Text style={styles.label}>Diagnosis:</Text>
-            <Text style={styles.value}>{item.diagnosis.join(', ')}</Text>
-          </View>
-
-          <View style={styles.activityRow}>
-            <Text style={styles.label}>Procedures:</Text>
-            <Text style={styles.value}>{item.procedures.join(', ')}</Text>
-          </View>
-
-          <View style={styles.billingSummary}>
-            <View style={styles.billingCodes}>
-              {item.billingCodes.map((code, index) => (
-                <View key={code.code} style={styles.billingCode}>
-                  <Text style={styles.billingCodeText}>
-                    {code.code} {code.modifier ? `(${code.modifier})` : ''}
-                  </Text>
-                  <Text style={styles.billingAmount}>
-                    ${(code.modifiedPrice || code.basePrice).toFixed(2)}
-                  </Text>
+          <View style={styles.activityHeader}>
+            <View style={styles.patientInfo}>
+              <Text style={styles.patientName}>{item.patientName}</Text>
+              <Text style={styles.date}>{item.date}</Text>
+              {item.dateOfBirth && (
+                <>
+                  <Text style={styles.dateOfBirth}>• {item.dateOfBirth}</Text>
+                  <Text style={styles.age}>• {calculateAge(item.dateOfBirth)}y</Text>
+                </>
+              )}
+              <Text style={styles.billingCodes} numberOfLines={1}>• {billingCodesText}</Text>
+            </View>
+            <View style={styles.headerRight}>
+              <Text style={styles.totalAmount}>${item.totalAmount.toFixed(2)}</Text>
+              <View style={styles.badges}>
+                {item.hasMatchingRecord ? (
+                  <View style={styles.returningPatientBadge}>
+                    <Text style={styles.returningPatientText}>Existing</Text>
+                  </View>
+                ) : (
+                  <View style={styles.newPatientBadge}>
+                    <Text style={styles.newPatientText}>New</Text>
+                  </View>
+                )}
+                <View style={[
+                  styles.statusBadge,
+                  item.status === 'confirmed' ? styles.statusConfirmed : styles.statusPending
+                ]}>
+                  <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
                 </View>
-              ))}
+              </View>
             </View>
-            <View style={styles.totalAmount}>
-              <Text style={styles.totalLabel}>Total:</Text>
-              <Text style={styles.totalValue}>${item.totalAmount.toFixed(2)}</Text>
-            </View>
+          </View>
+          <Text style={styles.reason} numberOfLines={1}>{item.reason}</Text>
+          <View style={styles.activityDetails}>
+            <Text style={styles.detailText} numberOfLines={1}>
+              {item.diagnosis[0]}{item.diagnosis.length > 1 ? ` +${item.diagnosis.length - 1}` : ''} • {item.procedures[0]}{item.procedures.length > 1 ? ` +${item.procedures.length - 1}` : ''}
+            </Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -612,19 +594,13 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
         <Text style={[styles.sectionTitle, { fontSize: 20 * scale }]}>Recent Encounters</Text>
         <ScrollView 
           style={styles.activityList}
-          contentContainerStyle={[
-            styles.activityListContent,
-            isTablet && styles.activityListContentTablet
-          ]}
+          contentContainerStyle={styles.activityListContent}
         >
           {activityItems.map((item) => (
             <Swipeable
               key={item.id}
               renderRightActions={() => renderRightActions(item)}
               renderLeftActions={() => renderLeftActions(item)}
-              containerStyle={[
-                isTablet && styles.swipeableContainerTablet
-              ]}
             >
               {renderActivityItem(item)}
             </Swipeable>
@@ -646,25 +622,23 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
           <Text style={[styles.statText, { fontSize: 14 * scale }]}>Submissions ready</Text>
         </View>
       </View>
-
-      {/* Navigation Bar */}
-      <View style={[styles.navbar, { height: 80 * scale }]}>
-        <TouchableOpacity style={styles.navItem}>
-          <View style={[styles.activeIndicator, { width: 20 * scale, height: 3 * scale }]} />
-          <Text style={[styles.navText, styles.activeNavText, { fontSize: 14 * scale }]}>Home</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={[styles.navText, { fontSize: 14 * scale }]}>Records</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={[styles.navText, { fontSize: 14 * scale }]}>Settings</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 };
+
+// Add SVG icons for navigation
+const homeIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8h5z" fill="currentColor"/>
+</svg>`;
+
+const statementsIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" fill="currentColor"/>
+  <path d="M8 12h8v2H8v-2zm0 4h8v2H8v-2z" fill="currentColor"/>
+</svg>`;
+
+const settingsIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.63-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" fill="currentColor"/>
+</svg>`;
 
 const styles = StyleSheet.create({
   container: {
@@ -753,147 +727,118 @@ const styles = StyleSheet.create({
   activityListContent: {
     paddingBottom: 20,
   },
-  activityListContentTablet: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  swipeableContainerTablet: {
-    width: '48.5%', // Leave some gap between columns
-  },
   activityItem: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    marginBottom: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  activityContent: {
+    flex: 1,
   },
   activityHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 4,
   },
-  activityHeaderLeft: {
-    flex: 1,
-  },
-  patientNameContainer: {
+  patientInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
     marginBottom: 4,
+    flex: 1,
+    flexWrap: 'wrap',
   },
   patientName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1A1A1A',
+    marginRight: 8,
   },
   date: {
     fontSize: 14,
     color: '#666666',
+    marginRight: 8,
   },
-  activityHeaderRight: {
-    alignItems: 'flex-end',
-  },
-  status: {
-    fontSize: 12,
-    fontWeight: '500',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  statusConfirmed: {
-    backgroundColor: '#E8F5E9',
-    color: '#2E7D32',
-  },
-  statusPending: {
-    backgroundColor: '#FFF3E0',
-    color: '#E65100',
-  },
-  flagIndicator: {
-    marginTop: 4,
-  },
-  flagText: {
-    fontSize: 16,
-  },
-  activityContent: {
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-    paddingTop: 12,
-  },
-  activityRow: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  label: {
-    width: 100,
-    fontSize: 14,
-    color: '#666666',
-  },
-  value: {
-    flex: 1,
-    fontSize: 14,
-    color: '#1A1A1A',
-  },
-  billingSummary: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-  },
-  billingCodes: {
-    marginBottom: 8,
-  },
-  billingCode: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F5F7FA',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginBottom: 8,
-  },
-  billingCodeText: {
-    fontSize: 14,
-    color: '#1976D2',
-    fontWeight: '500',
-  },
-  billingAmount: {
-    fontSize: 14,
-    color: '#2E7D32',
-    fontWeight: '500',
-  },
-  totalAmount: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-  },
-  totalLabel: {
+  dateOfBirth: {
     fontSize: 14,
     color: '#666666',
     marginRight: 8,
   },
-  totalValue: {
+  age: {
+    fontSize: 14,
+    color: '#666666',
+  },
+  headerRight: {
+    alignItems: 'flex-end',
+  },
+  totalAmount: {
     fontSize: 16,
     fontWeight: '600',
     color: '#2E7D32',
+    marginBottom: 4,
+  },
+  reason: {
+    fontSize: 14,
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  activityDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailText: {
+    fontSize: 13,
+    color: '#666666',
+  },
+  badges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statusBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#fff',
+  },
+  statusConfirmed: {
+    backgroundColor: '#4CAF50',
+  },
+  statusPending: {
+    backgroundColor: '#FFC107',
+  },
+  newPatientBadge: {
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  newPatientText: {
+    fontSize: 11,
+    color: '#E65100',
+    fontWeight: '500',
+  },
+  returningPatientBadge: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  returningPatientText: {
+    fontSize: 11,
+    color: '#2E7D32',
+    fontWeight: '500',
   },
   statsContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingBottom: 100,
+    paddingBottom: 20,
   },
   statWidget: {
     flex: 1,
@@ -931,77 +876,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666666',
   },
-  navbar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'white',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    height: 80,
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-    paddingBottom: 20,
-  },
-  navItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100%',
-    paddingTop: 12,
-  },
-  activeIndicator: {
-    position: 'absolute',
-    top: 0,
-    width: 20,
-    height: 3,
-    backgroundColor: '#1976D2',
-    borderRadius: 1.5,
-  },
-  navText: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#666666',
-  },
-  activeNavText: {
-    color: '#1976D2',
-    fontWeight: '500',
-  },
-  newPatientBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF3E0',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  newPatientIcon: {
-    fontSize: 12,
-    marginRight: 4,
-  },
-  newPatientText: {
-    fontSize: 12,
-    color: '#E65100',
-    fontWeight: '500',
-  },
-  returningPatientBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  returningPatientIcon: {
-    fontSize: 12,
-    marginRight: 4,
-  },
-  returningPatientText: {
-    fontSize: 12,
-    color: '#2E7D32',
-    fontWeight: '500',
-  },
   rightActions: {
     flexDirection: 'row',
     height: '100%',
@@ -1035,6 +909,11 @@ const styles = StyleSheet.create({
   },
   approveButton: {
     backgroundColor: '#4CAF50',
+  },
+  billingCodes: {
+    fontSize: 14,
+    color: '#1976D2',
+    fontWeight: '500',
   },
 });
 
