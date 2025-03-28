@@ -4,6 +4,22 @@ import { SvgXml } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 
+// Update the logo SVG with a simpler, modern design
+const logoIconSvg = `<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simple background -->
+  <rect width="32" height="32" rx="8" fill="#1976D2"/>
+  
+  <!-- Minimal medical symbol -->
+  <path d="M16 8V24M8 16H24" 
+    stroke="white" 
+    stroke-width="2.5" 
+    stroke-linecap="round" 
+    stroke-linejoin="round"/>
+  
+  <!-- Subtle dot -->
+  <circle cx="16" cy="16" r="2" fill="white"/>
+</svg>`;
+
 // Import SVG assets
 const cameraIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path d="M12 12C13.1 12 14 11.1 14 10C14 8.9 13.1 8 12 8C10.9 8 10 8.9 10 10C10 11.1 10.9 12 12 12ZM12 14C10.67 14 9 13.33 9 10C9 6.67 10.67 6 12 6C13.33 6 15 6.67 15 10C15 13.33 13.33 14 12 14Z" fill="currentColor"/>
@@ -559,7 +575,15 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
     <View style={styles.container}>
       {/* Header Section */}
       <View style={[styles.header, { padding: 20 * scale }]}>
-        <Text style={[styles.title, { fontSize: 24 * scale }]}>Boao Medical Billing</Text>
+        <View style={styles.headerLeft}>
+          <View style={styles.logoContainer}>
+            <SvgXml xml={logoIconSvg} width={32 * scale} height={32 * scale} />
+          </View>
+          <View style={styles.titleContainer}>
+            <Text style={[styles.title, { fontSize: 24 * scale }]}>Boao Medical Billing</Text>
+            <Text style={[styles.copyright, { fontSize: 10 * scale }]}>© 2025 Boao Medical Billing™</Text>
+          </View>
+        </View>
         <View style={[styles.profileIcon, { width: 40 * scale, height: 40 * scale }]}>
           <Text style={[styles.profileText, { fontSize: 16 * scale }]}>DR</Text>
         </View>
@@ -612,8 +636,8 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
       <View style={[styles.statsContainer, { marginTop: 30 * scale }]}>
         <View style={[styles.statWidget, { padding: 20 * scale }]}>
           <Text style={[styles.statTitle, { fontSize: 18 * scale }]}>Monthly Billing</Text>
-          <Text style={[styles.statAmount, { fontSize: 32 * scale }]}>$12,450</Text>
-          <Text style={[styles.statComparison, { fontSize: 14 * scale }]}>+8% from last month</Text>
+          <Text style={[styles.statAmount, { fontSize: 32 * scale }]}>$32,450</Text>
+          <Text style={[styles.statComparison, { fontSize: 14 * scale }]}>+12% from last month</Text>
         </View>
         
         <View style={[styles.statWidget, { padding: 20 * scale }]}>
@@ -658,10 +682,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#EEEEEE',
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoContainer: {
+    marginRight: 12,
+  },
+  titleContainer: {
+    flexDirection: 'column',
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1A1A1A',
+  },
+  copyright: {
+    color: '#666666',
+    marginTop: 2,
   },
   profileIcon: {
     width: 40,

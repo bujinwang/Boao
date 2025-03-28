@@ -216,6 +216,47 @@ const COMMON_BILLING_CODES: BillingCode[] = [
   }
 ];
 
+// Add storage keys as constants
+const STORAGE_KEYS = {
+  FAVORITES: 'favoriteBillingCodes',
+  RECENT: 'recentBillingCodes',
+  USAGE_COUNT: 'billingCodeUsageCount'
+};
+
+// Sample codes for AI suggestions
+const SAMPLE_SUGGESTED_CODES: BillingCode[] = [
+  {
+    code: 'C103',
+    description: 'Complex consultation for chronic conditions',
+    basePrice: 180.00,
+    category: 'Consult',
+    timeEstimate: 45,
+    complexity: 'high',
+    commonDiagnoses: ['Hypertension', 'Type 2 Diabetes', 'Multiple Chronic Conditions'],
+    relatedCodes: ['C101']
+  },
+  {
+    code: 'D302',
+    description: 'Comprehensive diagnostic workup for chronic disease management',
+    basePrice: 165.00,
+    category: 'Diagnostic',
+    timeEstimate: 45,
+    complexity: 'medium',
+    commonDiagnoses: ['Hypertension', 'Type 2 Diabetes', 'Complex Symptoms'],
+    relatedCodes: ['D301', 'D303']
+  },
+  {
+    code: 'P201',
+    description: 'Minor surgical procedure for diabetic wound care',
+    basePrice: 150.00,
+    category: 'Procedure',
+    timeEstimate: 40,
+    complexity: 'medium',
+    commonDiagnoses: ['Type 2 Diabetes', 'Wound Care', 'Diabetic Foot'],
+    relatedCodes: ['P202']
+  }
+];
+
 const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
   onSelect,
   onClose,
@@ -226,6 +267,8 @@ const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [favoriteCodes, setFavoriteCodes] = useState<string[]>([]);
+  const [recentCodes, setRecentCodes] = useState<string[]>([]);
+  const [usageCount, setUsageCount] = useState<Record<string, number>>({});
   const [showModifierModal, setShowModifierModal] = useState(false);
   const [selectedCode, setSelectedCode] = useState<BillingCode | null>(null);
   const [actualTime, setActualTime] = useState<number | null>(null);
@@ -233,10 +276,55 @@ const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
   const [complexityFilter, setComplexityFilter] = useState<'low' | 'medium' | 'high' | null>(null);
   const { width } = useWindowDimensions();
 
-  // Load favorite codes from storage
+  // Load favorites and recent codes from storage
   useEffect(() => {
-    loadFavorites();
+    loadStoredData();
   }, []);
+
+  const loadStoredData = async () => {
+    try {
+      const [storedFavorites, storedRecent, storedUsage] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.FAVORITES),
+        AsyncStorage.getItem(STORAGE_KEYS.RECENT),
+        AsyncStorage.getItem(STORAGE_KEYS.USAGE_COUNT)
+      ]);
+
+      if (storedFavorites) setFavoriteCodes(JSON.parse(storedFavorites));
+      if (storedRecent) setRecentCodes(JSON.parse(storedRecent));
+      if (storedUsage) setUsageCount(JSON.parse(storedUsage));
+    } catch (error) {
+      console.error('Error loading stored data:', error);
+    }
+  };
+
+  const updateRecentCodes = async (code: string) => {
+    try {
+      const newRecent = [code, ...recentCodes.filter(c => c !== code)].slice(0, 10);
+      setRecentCodes(newRecent);
+      await AsyncStorage.setItem(STORAGE_KEYS.RECENT, JSON.stringify(newRecent));
+
+      // Update usage count
+      const newUsageCount = { ...usageCount };
+      newUsageCount[code] = (newUsageCount[code] || 0) + 1;
+      setUsageCount(newUsageCount);
+      await AsyncStorage.setItem(STORAGE_KEYS.USAGE_COUNT, JSON.stringify(newUsageCount));
+    } catch (error) {
+      console.error('Error updating recent codes:', error);
+    }
+  };
+
+  const toggleFavorite = async (code: string) => {
+    const newFavorites = favoriteCodes.includes(code)
+      ? favoriteCodes.filter(c => c !== code)
+      : [...favoriteCodes, code];
+    
+    setFavoriteCodes(newFavorites);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(newFavorites));
+    } catch (error) {
+      console.error('Error saving favorites:', error);
+    }
+  };
 
   // Show suggestions based on current diagnosis
   useEffect(() => {
@@ -249,30 +337,6 @@ const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
       }
     }
   }, [currentDiagnosis, showSuggestions]);
-
-  const loadFavorites = async () => {
-    try {
-      const stored = await AsyncStorage.getItem('favoriteBillingCodes');
-      if (stored) {
-        setFavoriteCodes(JSON.parse(stored));
-      }
-    } catch (error) {
-      console.error('Error loading favorites:', error);
-    }
-  };
-
-  const toggleFavorite = async (code: string) => {
-    const newFavorites = favoriteCodes.includes(code)
-      ? favoriteCodes.filter(c => c !== code)
-      : [...favoriteCodes, code];
-    
-    setFavoriteCodes(newFavorites);
-    try {
-      await AsyncStorage.setItem('favoriteBillingCodes', JSON.stringify(newFavorites));
-    } catch (error) {
-      console.error('Error saving favorites:', error);
-    }
-  };
 
   const handleComplexityChange = (complexity: 'low' | 'medium' | 'high' | null) => {
     setComplexityFilter(complexity === complexityFilter ? null : complexity);
@@ -317,7 +381,9 @@ const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
     return codes;
   };
 
-  const handleCodeSelect = (code: BillingCode) => {
+  const handleCodeSelect = async (code: BillingCode) => {
+    await updateRecentCodes(code.code);
+    
     const applicableModifiers = getApplicableModifiers(code);
     if (applicableModifiers.length > 0 || code.timeBasedModifiers) {
       setSelectedCode(code);
@@ -512,118 +578,181 @@ const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
           </TouchableOpacity>
         </View>
 
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by code, description, or diagnosis..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor="#999"
-          />
-          <View style={styles.filterSection}>
-            <View style={styles.filterRow}>
-              <Text style={styles.filterLabel}>Show Suggestions</Text>
-              <Switch
-                value={showSuggestions}
-                onValueChange={setShowSuggestions}
-                trackColor={{ false: '#767577', true: '#81b0ff' }}
-                thumbColor={showSuggestions ? '#1976D2' : '#f4f3f4'}
-              />
-              <View style={styles.complexityFilters}>
-                <TouchableOpacity
-                  style={[
-                    styles.complexityButton,
-                    complexityFilter === 'low' && styles.complexityButtonActive,
-                    { backgroundColor: '#E8F5E9' }
-                  ]}
-                  onPress={() => handleComplexityChange('low')}
-                >
-                  <Text style={styles.complexityButtonText}>Low</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.complexityButton,
-                    complexityFilter === 'medium' && styles.complexityButtonActive,
-                    { backgroundColor: '#FFF3E0' }
-                  ]}
-                  onPress={() => handleComplexityChange('medium')}
-                >
-                  <Text style={styles.complexityButtonText}>Medium</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.complexityButton,
-                    complexityFilter === 'high' && styles.complexityButtonActive,
-                    { backgroundColor: '#FFEBEE' }
-                  ]}
-                  onPress={() => handleComplexityChange('high')}
-                >
-                  <Text style={styles.complexityButtonText}>High</Text>
-                </TouchableOpacity>
-              </View>
+        {/* Reference Section */}
+        <View style={styles.referenceSection}>
+          <View style={styles.referenceHeader}>
+            <Text style={styles.referenceTitle}>📋 Current Visit Details</Text>
+          </View>
+          <View style={styles.referenceContent}>
+            <View style={styles.referenceItem}>
+              <Text style={styles.referenceLabel}>Diagnosis:</Text>
+              <Text style={styles.referenceValue}>
+                {Array.isArray(currentDiagnosis) 
+                  ? currentDiagnosis.join(', ') 
+                  : currentDiagnosis || 'Not specified'}
+              </Text>
             </View>
+            {currentCodes && currentCodes.length > 0 && (
+              <View style={styles.referenceItem}>
+                <Text style={styles.referenceLabel}>Procedures:</Text>
+                <Text style={styles.referenceValue}>
+                  {currentCodes.map(code => code.code).join(', ')}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
+        {/* Favorites Section */}
         {favoriteCodes.length > 0 && (
           <View style={styles.favoritesSection}>
-            <Text style={styles.sectionTitle}>Favorites</Text>
-            <FlatList
-              horizontal
-              data={COMMON_BILLING_CODES.filter(code => favoriteCodes.includes(code.code))}
-              renderItem={renderBillingCode}
-              keyExtractor={item => item.code}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>⭐ My Favorites</Text>
+              <Text style={styles.sectionCount}>{favoriteCodes.length} codes</Text>
+            </View>
+            <ScrollView 
+              horizontal 
               showsHorizontalScrollIndicator={false}
-            />
+              style={styles.favoritesScroll}
+            >
+              {favoriteCodes
+                .map(code => COMMON_BILLING_CODES.find(c => c.code === code))
+                .filter((code): code is BillingCode => code !== undefined)
+                .map(item => (
+                  <View key={item.code} style={styles.favoriteItem}>
+                    <TouchableOpacity 
+                      style={styles.favoriteCard}
+                      onPress={() => handleCodeSelect(item)}
+                    >
+                      <View style={styles.favoriteHeader}>
+                        <Text style={styles.favoriteCode}>{item.code}</Text>
+                        {usageCount[item.code] > 0 && (
+                          <View style={styles.usageCount}>
+                            <Text style={styles.usageCountText}>{usageCount[item.code]}×</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.favoriteDescription} numberOfLines={2}>
+                        {item.description}
+                      </Text>
+                      <Text style={styles.favoritePrice}>${item.basePrice.toFixed(2)}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))
+              }
+            </ScrollView>
           </View>
         )}
 
-        <FlatList
-          data={getFilteredCodes()}
-          renderItem={renderBillingCode}
-          keyExtractor={item => item.code}
-          style={styles.codeList}
-        />
-
-        <Modal
-          visible={showModifierModal}
-          animationType="slide"
-          transparent
-          onRequestClose={() => setShowModifierModal(false)}
-        >
-          <View style={styles.modifierModalContainer}>
-            <View style={styles.modifierContent}>
-              <View style={styles.modifierHeader}>
-                <Text style={styles.modifierTitle}>Select Modifier</Text>
-                <TouchableOpacity
-                  onPress={() => setShowModifierModal(false)}
-                  style={styles.closeButton}
-                >
-                  <Text style={styles.closeButtonText}>×</Text>
-                </TouchableOpacity>
-              </View>
-
-              {selectedCode?.timeBasedModifiers && (
-                <View style={styles.timeInput}>
-                  <Text style={styles.timeInputLabel}>
-                    Actual Time (minutes) - Standard: {selectedCode.timeEstimate}min
-                  </Text>
-                  <TextInput
-                    style={styles.timeInputField}
-                    value={actualTime?.toString()}
-                    onChangeText={(value) => setActualTime(parseInt(value) || null)}
-                    keyboardType="numeric"
-                    placeholder="Enter actual time..."
-                  />
-                </View>
-              )}
-
-              <ScrollView>
-                {Object.values(BILLING_MODIFIERS).map(renderModifierOption)}
-              </ScrollView>
+        {/* AI Suggestions Section */}
+        {currentDiagnosis && (
+          <View style={styles.suggestionsSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>🤖 AI Suggestions</Text>
+              <Text style={styles.sectionCount}>Based on diagnosis</Text>
             </View>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.suggestionsScroll}
+            >
+              {SAMPLE_SUGGESTED_CODES.map(item => (
+                <View key={item.code} style={styles.suggestionItem}>
+                  <TouchableOpacity 
+                    style={[styles.favoriteCard, styles.suggestionCard]}
+                    onPress={() => handleCodeSelect(item)}
+                  >
+                    <View style={styles.favoriteHeader}>
+                      <Text style={styles.favoriteCode}>{item.code}</Text>
+                      <TouchableOpacity
+                        onPress={() => toggleFavorite(item.code)}
+                        style={styles.favoriteButton}
+                      >
+                        <Text style={styles.favoriteIcon}>
+                          {favoriteCodes.includes(item.code) ? '★' : '☆'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.favoriteDescription} numberOfLines={2}>
+                      {item.description}
+                    </Text>
+                    <Text style={styles.favoritePrice}>${item.basePrice.toFixed(2)}</Text>
+                    <View style={styles.aiMatchTag}>
+                      <Text style={styles.aiMatchText}>AI Match</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
           </View>
-        </Modal>
+        )}
+
+        {/* Smart Search Section */}
+        <View style={styles.searchSection}>
+          <View style={styles.searchHeader}>
+            <Text style={styles.sectionTitle}>🔍 Smart Search</Text>
+          </View>
+          <View style={styles.searchInputContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by code, description, or keywords..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#999"
+            />
+          </View>
+        </View>
+
+        {/* Main Results Section */}
+        <View style={styles.resultsSection}>
+          <FlatList
+            data={getFilteredCodes()}
+            renderItem={({ item }) => {
+              const isSuggested = currentDiagnosis && (
+                Array.isArray(currentDiagnosis) ? currentDiagnosis : [currentDiagnosis]
+              ).some(diagnosis =>
+                item.commonDiagnoses?.some(d =>
+                  d.toLowerCase().includes(diagnosis.toLowerCase())
+                )
+              );
+
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.resultCard,
+                    isSuggested && styles.suggestedCard
+                  ]}
+                  onPress={() => handleCodeSelect(item)}
+                >
+                  <View style={styles.resultContent}>
+                    <View style={styles.resultHeader}>
+                      <View style={styles.resultHeaderLeft}>
+                        <Text style={styles.resultCode}>{item.code}</Text>
+                        <TouchableOpacity
+                          onPress={() => toggleFavorite(item.code)}
+                          style={styles.favoriteButton}
+                        >
+                          <Text style={styles.favoriteIcon}>
+                            {favoriteCodes.includes(item.code) ? '★' : '☆'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={styles.resultPrice}>${item.basePrice.toFixed(2)}</Text>
+                    </View>
+                    <Text style={styles.resultDescription}>{item.description}</Text>
+                    {isSuggested && (
+                      <View style={styles.aiTag}>
+                        <Text style={styles.aiTagText}>🤖 AI Suggested for current diagnosis</Text>
+                      </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+            keyExtractor={item => item.code}
+            contentContainerStyle={styles.resultsList}
+          />
+        </View>
       </View>
     </Modal>
   );
@@ -655,106 +784,167 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#666666',
   },
-  searchInput: {
-    margin: 10,
-    padding: 10,
-    backgroundColor: 'white',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-  },
-  searchContainer: {
-    padding: 10,
-  },
-  filterSection: {
-    gap: 16,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  filterLabel: {
-    fontSize: 16,
-    color: '#333',
-  },
-  complexityFilters: {
-    flexDirection: 'row',
-    marginLeft: 16,
-    gap: 8,
-  },
-  complexityButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  complexityButtonActive: {
-    borderColor: '#1976D2',
-  },
-  complexityButtonText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#333',
-  },
-  categoryContainer: {
-    flexDirection: 'row',
-    paddingRight: 8,
-  },
-  categoryButton: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 16,
-    marginRight: 8,
-    padding: 12,
-    minWidth: 100,
-  },
-  categoryButtonActive: {
-    backgroundColor: '#2196F3',
-  },
-  categoryContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  categoryText: {
-    color: '#666',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  categoryTextActive: {
-    color: '#fff',
-  },
-  usageStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
-  },
-  usageStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  usageText: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-  },
   favoritesSection: {
-    padding: 10,
+    backgroundColor: 'white',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#333333',
+  },
+  sectionCount: {
+    fontSize: 14,
+    color: '#666666',
+  },
+  favoritesScroll: {
+    paddingHorizontal: 15,
+  },
+  favoriteItem: {
+    width: 200,
+    marginRight: 10,
+  },
+  favoriteCard: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  favoriteHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  favoriteCode: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1976D2',
+  },
+  favoriteDescription: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 8,
+  },
+  favoritePrice: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#4CAF50',
+  },
+  usageCount: {
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  usageCountText: {
+    color: '#1976D2',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  searchSection: {
+    backgroundColor: 'white',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  searchHeader: {
+    paddingHorizontal: 20,
     marginBottom: 10,
   },
-  codeList: {
+  searchInputContainer: {
+    paddingHorizontal: 15,
+  },
+  searchInput: {
+    backgroundColor: '#F5F7FA',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#333333',
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+  },
+  resultsSection: {
     flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
+  resultsList: {
+    padding: 15,
+  },
+  resultCard: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+  },
+  suggestedCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+  },
+  resultContent: {
+    padding: 15,
+  },
+  resultHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  resultHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  resultCode: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1976D2',
+    marginRight: 8,
+  },
+  favoriteButton: {
+    padding: 4,
+  },
+  favoriteIcon: {
+    fontSize: 20,
+    color: '#FFC107',
+  },
+  resultPrice: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#4CAF50',
+  },
+  resultDescription: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 8,
+  },
+  aiTag: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  aiTagText: {
+    fontSize: 12,
+    color: '#2E7D32',
+    fontWeight: '500',
   },
   codeItem: {
     backgroundColor: 'white',
@@ -779,13 +969,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: '#1976D2',
-  },
-  favoriteButton: {
-    padding: 5,
-  },
-  favoriteIcon: {
-    fontSize: 20,
-    color: '#FFC107',
   },
   descriptionText: {
     fontSize: 14,
@@ -814,6 +997,29 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 4,
     marginTop: 5,
+  },
+  categoryText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  usageStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  usageStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  usageText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
   },
   modifierModalContainer: {
     flex: 1,
@@ -926,6 +1132,120 @@ const styles = StyleSheet.create({
   basePrice: {
     fontSize: 14,
     color: '#666666',
+  },
+  quickAccessSection: {
+    padding: 10,
+    backgroundColor: '#F8F9FA',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: '#666666',
+    marginTop: 2,
+  },
+  quickAccessList: {
+    marginTop: 10,
+  },
+  quickAccessItem: {
+    width: 300,
+    marginRight: 10,
+    position: 'relative',
+  },
+  usageCountBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#1976D2',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  suggestionsSection: {
+    backgroundColor: '#F8F9FA',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  suggestionsScroll: {
+    paddingHorizontal: 15,
+  },
+  suggestionItem: {
+    width: 200,
+    marginRight: 10,
+  },
+  suggestionCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+  },
+  aiMatchTag: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  aiMatchText: {
+    fontSize: 12,
+    color: '#2E7D32',
+    fontWeight: '500',
+  },
+  categoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+  },
+  categoryButtonActive: {
+    backgroundColor: '#1976D2',
+  },
+  categoryContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  categoryTextActive: {
+    color: 'white',
+  },
+  referenceSection: {
+    backgroundColor: '#F8F9FA',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  referenceHeader: {
+    paddingHorizontal: 20,
+    marginBottom: 10,
+  },
+  referenceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333333',
+  },
+  referenceContent: {
+    paddingHorizontal: 20,
+  },
+  referenceItem: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  referenceLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666666',
+    width: 80,
+  },
+  referenceValue: {
+    fontSize: 14,
+    color: '#333333',
+    flex: 1,
   },
 });
 
