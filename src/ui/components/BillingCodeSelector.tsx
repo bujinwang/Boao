@@ -10,6 +10,7 @@ import {
   ScrollView,
   Switch,
   ViewStyle,
+  useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
@@ -23,6 +24,16 @@ import {
   getApplicableModifiers,
   calculateTimeModifier
 } from '../../extraction/models/BillingCodes';
+import { SvgXml } from 'react-native-svg';
+import { 
+  allIconSvg, 
+  consultIconSvg, 
+  procedureIconSvg, 
+  diagnosticIconSvg, 
+  premiumIconSvg,
+  starIconSvg,
+  trendingIconSvg
+} from '../../assets/icons';
 
 interface BillingCodeSelectorProps {
   onSelect: (code: BillingCode) => void;
@@ -32,11 +43,26 @@ interface BillingCodeSelectorProps {
   currentCodes?: BillingCode[];
 }
 
+interface CategoryData {
+  name: string;
+  icon: string;
+  personalUsage: number;
+  systemUsage: number;
+}
+
 const complexityStyles: Record<string, ViewStyle> = {
   low: { backgroundColor: '#E8F5E9' },
   medium: { backgroundColor: '#FFF3E0' },
   high: { backgroundColor: '#FFEBEE' },
 };
+
+const categories: CategoryData[] = [
+  { name: 'All', icon: allIconSvg, personalUsage: 0, systemUsage: 0 },
+  { name: 'Consult', icon: consultIconSvg, personalUsage: 45, systemUsage: 1250 },
+  { name: 'Procedure', icon: procedureIconSvg, personalUsage: 32, systemUsage: 890 },
+  { name: 'Diagnostic', icon: diagnosticIconSvg, personalUsage: 28, systemUsage: 760 },
+  { name: 'Premium', icon: premiumIconSvg, personalUsage: 15, systemUsage: 320 },
+];
 
 const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
   onSelect,
@@ -53,6 +79,7 @@ const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
   const [actualTime, setActualTime] = useState<number | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [complexityFilter, setComplexityFilter] = useState<'low' | 'medium' | 'high' | null>(null);
+  const { width } = useWindowDimensions();
 
   // Load favorite codes from storage
   useEffect(() => {
@@ -282,6 +309,44 @@ const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
     );
   };
 
+  const renderCategoryButton = (category: CategoryData) => (
+    <TouchableOpacity
+      key={category.name}
+      style={[
+        styles.categoryButton,
+        selectedCategory === category.name && styles.categoryButtonActive
+      ]}
+      onPress={() => setSelectedCategory(category.name)}
+    >
+      <View style={styles.categoryContent}>
+        <SvgXml 
+          xml={category.icon} 
+          width={24} 
+          height={24} 
+          color={selectedCategory === category.name ? '#fff' : '#666'} 
+        />
+        <Text style={[
+          styles.categoryText,
+          selectedCategory === category.name && styles.categoryTextActive
+        ]}>
+          {category.name}
+        </Text>
+      </View>
+      {category.name !== 'All' && (
+        <View style={styles.usageStats}>
+          <View style={styles.usageStat}>
+            <SvgXml xml={starIconSvg} width={12} height={12} color="#FFC107" />
+            <Text style={styles.usageText}>{category.personalUsage}</Text>
+          </View>
+          <View style={styles.usageStat}>
+            <SvgXml xml={trendingIconSvg} width={12} height={12} color="#2196F3" />
+            <Text style={styles.usageText}>{category.systemUsage}</Text>
+          </View>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+
   return (
     <Modal
       visible={visible}
@@ -302,68 +367,31 @@ const BillingCodeSelector: React.FC<BillingCodeSelectorProps> = ({
             placeholder="Search by code, description, or diagnosis..."
             value={searchQuery}
             onChangeText={setSearchQuery}
+            placeholderTextColor="#999"
           />
-          <View style={styles.searchOptions}>
-            <View style={styles.optionItem}>
-              <Text style={styles.optionLabel}>Show Suggestions</Text>
-              <Switch
-                value={showSuggestions}
-                onValueChange={setShowSuggestions}
-              />
+          <View style={styles.filterSection}>
+            <View style={styles.filterRow}>
+              <Text style={styles.filterLabel}>Show Suggestions</Text>
+              <TouchableOpacity 
+                style={[styles.toggle, showSuggestions && styles.toggleActive]}
+                onPress={() => setShowSuggestions(!showSuggestions)}
+              >
+                <View style={[styles.toggleHandle, showSuggestions && styles.toggleHandleActive]} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.complexityButton}>
+                <Text style={styles.complexityText}>Any Complexity</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.complexityButton}
-              onPress={() => {
-                setComplexityFilter(current => {
-                  switch (current) {
-                    case null: return 'low';
-                    case 'low': return 'medium';
-                    case 'medium': return 'high';
-                    case 'high': return null;
-                  }
-                });
-              }}
+
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryContainer}
             >
-              <Text style={styles.complexityButtonText}>
-                {complexityFilter ? `Complexity: ${complexityFilter}` : 'Any Complexity'}
-              </Text>
-            </TouchableOpacity>
+              {categories.map(renderCategoryButton)}
+            </ScrollView>
           </View>
         </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoryContainer}
-        >
-          <TouchableOpacity
-            style={[
-              styles.categoryButton,
-              !selectedCategory && styles.categoryButtonActive
-            ]}
-            onPress={() => setSelectedCategory(null)}
-          >
-            <Text style={[
-              styles.categoryButtonText,
-              !selectedCategory && styles.categoryButtonTextActive
-            ]}>All</Text>
-          </TouchableOpacity>
-          {Object.values(BILLING_CATEGORIES).map(category => (
-            <TouchableOpacity
-              key={category}
-              style={[
-                styles.categoryButton,
-                selectedCategory === category && styles.categoryButtonActive
-              ]}
-              onPress={() => setSelectedCategory(category)}
-            >
-              <Text style={[
-                styles.categoryButtonText,
-                selectedCategory === category && styles.categoryButtonTextActive
-              ]}>{category}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
 
         {favoriteCodes.length > 0 && (
           <View style={styles.favoritesSection}>
@@ -466,51 +494,93 @@ const styles = StyleSheet.create({
   searchContainer: {
     padding: 10,
   },
-  searchOptions: {
+  filterSection: {
+    gap: 16,
+  },
+  filterRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 10,
+    marginBottom: 16,
   },
-  optionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  filterLabel: {
+    fontSize: 16,
+    color: '#333',
   },
-  optionLabel: {
-    marginRight: 10,
-    fontSize: 14,
-    color: '#666666',
+  toggle: {
+    width: 51,
+    height: 31,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 15.5,
+    padding: 2,
+  },
+  toggleActive: {
+    backgroundColor: '#4CAF50',
+  },
+  toggleHandle: {
+    width: 27,
+    height: 27,
+    backgroundColor: 'white',
+    borderRadius: 13.5,
+  },
+  toggleHandleActive: {
+    transform: [{ translateX: 20 }],
   },
   complexityButton: {
-    padding: 8,
-    backgroundColor: '#E3F2FD',
-    borderRadius: 4,
+    backgroundColor: '#F0F7FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  complexityButtonText: {
-    color: '#1976D2',
+  complexityText: {
+    color: '#2196F3',
     fontSize: 14,
+    fontWeight: '500',
   },
   categoryContainer: {
-    padding: 10,
+    flexDirection: 'row',
+    paddingRight: 8,
   },
   categoryButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    backgroundColor: 'white',
-    borderRadius: 20,
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 16,
+    marginRight: 8,
+    padding: 12,
+    minWidth: 100,
   },
   categoryButtonActive: {
-    backgroundColor: '#1976D2',
-    borderColor: '#1976D2',
+    backgroundColor: '#2196F3',
   },
-  categoryButtonText: {
-    color: '#666666',
+  categoryContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  categoryButtonTextActive: {
-    color: 'white',
+  categoryText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  categoryTextActive: {
+    color: '#fff',
+  },
+  usageStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  usageStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  usageText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
   },
   favoritesSection: {
     padding: 10,
@@ -582,10 +652,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 4,
     marginTop: 5,
-  },
-  categoryText: {
-    fontSize: 12,
-    color: '#1976D2',
   },
   modifierModalContainer: {
     flex: 1,
@@ -701,4 +767,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export { BillingCodeSelector }; 
+export default BillingCodeSelector; 
