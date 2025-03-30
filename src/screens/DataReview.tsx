@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput,
 import { PatientData } from '../extraction/models/PatientData';
 import { EncounterData } from '../extraction/models/EncounterData';
 import { OCRResult } from '../ocr/models/OCRTypes';
-import { BillingCodeSuggestion } from '../billing/models/BillingCodeSuggestion';
+import { BillingCodeSuggestion } from '../billing/models/BillingCode';
 import { BillingCode, BILLING_CATEGORIES } from '../extraction/models/BillingCodes';
 import { LinearGradient } from 'expo-linear-gradient';
 import { RootStackParamList } from '../types/navigation';
@@ -36,21 +36,12 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
 
   // Add logging to debug data passing
   useEffect(() => {
-    console.log('Initial Patient Data:', initialPatientData);
-    console.log('Initial Encounter Data:', initialEncounterData);
     console.log('Billing Code Suggestions:', billingCodeSuggestions);
-    
-    // Log date of birth specifically
-    if (initialPatientData?.dateOfBirth) {
-      console.log('Date of Birth (raw):', initialPatientData.dateOfBirth);
-      console.log('Date of Birth (type):', typeof initialPatientData.dateOfBirth);
-      console.log('Date of Birth (parsed):', new Date(initialPatientData.dateOfBirth));
-      console.log('Date of Birth (isValid):', !isNaN(new Date(initialPatientData.dateOfBirth).getTime()));
-    }
-  }, [initialPatientData, initialEncounterData, billingCodeSuggestions]);
+  }, [billingCodeSuggestions]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isBillingModalVisible, setIsBillingModalVisible] = useState(false);
+  const [isImageModalVisible, setIsImageModalVisible] = useState(false);
 
   // Initialize state with the provided data or defaults
   const [patientData, setPatientData] = useState<PatientData>(() => {
@@ -127,7 +118,7 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
   });
 
   // Store AI suggestions separately only for new imports
-  const [aiSuggestions, setAiSuggestions] = useState<NavigationBillingCodeSuggestion[]>(() => {
+  const [aiSuggestions, setAiSuggestions] = useState<BillingCodeSuggestion[]>(() => {
     // Only show AI suggestions if this is a new import (no existing billing codes)
     if (!initialEncounterData?.billingCodes || initialEncounterData.billingCodes.length === 0) {
       return billingCodeSuggestions || [];
@@ -182,15 +173,15 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
       if (initialEncounterData.billingCodes && initialEncounterData.billingCodes.length > 0) {
         setSelectedBillingCodes(
           initialEncounterData.billingCodes.map(code => ({
-      ...code,
+            ...code,
             category: BILLING_CATEGORIES.CONSULTATION,
             timeBasedModifiers: false,
-      commonDiagnoses: [],
-      relatedCodes: [],
+            commonDiagnoses: [],
+            relatedCodes: [],
             timeEstimate: 0,
             complexity: 'low' as const
-    }))
-  );
+          }))
+        );
         // Clear AI suggestions for existing records
         setAiSuggestions([]);
       } else if (billingCodeSuggestions) {
@@ -200,12 +191,35 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
     }
   }, [initialPatientData, initialEncounterData, billingCodeSuggestions]);
 
-  const formatDate = (date: Date): string => {
+  const formatDate = (date: Date | string | undefined): string => {
     try {
-      return date.toLocaleDateString();
+      if (!date) return new Date().toLocaleDateString();
+      if (date instanceof Date) return date.toLocaleDateString();
+      const parsedDate = new Date(date);
+      if (isNaN(parsedDate.getTime())) {
+        console.warn('Invalid date:', date);
+        return new Date().toLocaleDateString();
+      }
+      return parsedDate.toLocaleDateString();
     } catch (error) {
       console.error('Error formatting date:', error);
       return new Date().toLocaleDateString();
+    }
+  };
+
+  const formatDateToISO = (date: Date | string | undefined): string => {
+    try {
+      if (!date) return new Date().toISOString().split('T')[0];
+      if (date instanceof Date) return date.toISOString().split('T')[0];
+      const parsedDate = new Date(date);
+      if (isNaN(parsedDate.getTime())) {
+        console.warn('Invalid date:', date);
+        return new Date().toISOString().split('T')[0];
+      }
+      return parsedDate.toISOString().split('T')[0];
+    } catch (error) {
+      console.error('Error formatting date to ISO:', error);
+      return new Date().toISOString().split('T')[0];
     }
   };
 
@@ -214,7 +228,13 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
     const formattedBillingCodes = selectedBillingCodes.map(code => ({
       code: code.code,
       description: code.description,
-      basePrice: code.basePrice || 0,
+      basePrice: code.basePrice,
+      category: code.category,
+      timeBasedModifiers: code.timeBasedModifiers,
+      commonDiagnoses: code.commonDiagnoses,
+      relatedCodes: code.relatedCodes,
+      timeEstimate: code.timeEstimate,
+      complexity: code.complexity,
       modifier: code.modifier,
       modifiedPrice: code.modifiedPrice
     }));
@@ -225,9 +245,9 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
       0
     );
 
-    // Create the updated encounter
+    // Create the updated encounter with serializable dates
     const updatedEncounter: EncounterData = {
-      date: encounterData.date,
+      date: encounterData.date instanceof Date ? encounterData.date.toISOString() : encounterData.date,
       reason: encounterData.reason,
       diagnosis: encounterData.diagnosis,
       procedures: encounterData.procedures,
@@ -239,12 +259,12 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
       status: 'pending'
     };
 
-    // Create the updated patient data
+    // Create the updated patient data with serializable dates
     const updatedPatient: PatientData = {
       fullName: patientData.fullName || `${patientData.firstName} ${patientData.lastName}`.trim(),
       firstName: patientData.firstName || patientData.fullName?.split(' ')[0] || '',
       lastName: patientData.lastName || patientData.fullName?.split(' ').slice(1).join(' ') || '',
-      dateOfBirth: patientData.dateOfBirth,
+      dateOfBirth: patientData.dateOfBirth instanceof Date ? patientData.dateOfBirth.toISOString() : patientData.dateOfBirth,
       healthcareNumber: patientData.healthcareNumber,
       gender: patientData.gender,
       address: patientData.address,
@@ -341,7 +361,7 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
         <View style={[styles.infoItem, { minWidth: '45%' }]}>
           <Text style={[styles.label, { fontSize: 14 * scale }]}>Full Name</Text>
           {isEditing ? (
-                    <TextInput
+            <TextInput
               style={styles.input}
               value={patientData.fullName}
               onChangeText={(text) => setPatientData(prev => ({ ...prev, fullName: text }))}
@@ -350,13 +370,13 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
           ) : (
             <Text style={[styles.value, { fontSize: 16 * scale }]}>{patientData.fullName}</Text>
           )}
-                  </View>
+        </View>
         <View style={[styles.infoItem, { minWidth: '45%' }]}>
           <Text style={[styles.label, { fontSize: 14 * scale }]}>Date of Birth</Text>
           {isEditing ? (
-                    <TextInput
+            <TextInput
               style={styles.input}
-              value={(patientData.dateOfBirth || new Date()).toISOString().split('T')[0]}
+              value={formatDateToISO(patientData.dateOfBirth)}
               onChangeText={(text) => {
                 try {
                   const newDate = new Date(text);
@@ -372,10 +392,10 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
             />
           ) : (
             <Text style={[styles.value, { fontSize: 16 * scale }]}>
-              {(patientData.dateOfBirth || new Date()).toLocaleDateString()}
+              {formatDate(patientData.dateOfBirth)}
             </Text>
           )}
-                  </View>
+        </View>
         <View style={[styles.infoItem, { minWidth: '45%' }]}>
           <Text style={[styles.label, { fontSize: 14 * scale }]}>Healthcare Number</Text>
           {isEditing ? (
@@ -387,7 +407,7 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
           ) : (
             <Text style={[styles.value, { fontSize: 16 * scale }]}>{patientData.healthcareNumber}</Text>
           )}
-                </View>
+        </View>
         <View style={[styles.infoItem, { minWidth: '45%' }]}>
           <Text style={[styles.label, { fontSize: 14 * scale }]}>Gender</Text>
           {isEditing ? (
@@ -399,7 +419,7 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
           ) : (
             <Text style={[styles.value, { fontSize: 16 * scale }]}>{patientData.gender}</Text>
           )}
-                  </View>
+        </View>
         <View style={[styles.infoItem, { minWidth: '45%' }]}>
           <Text style={[styles.label, { fontSize: 14 * scale }]}>Phone Number</Text>
           {isEditing ? (
@@ -411,7 +431,7 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
           ) : (
             <Text style={[styles.value, { fontSize: 16 * scale }]}>{patientData.phoneNumber}</Text>
           )}
-                </View>
+        </View>
         <View style={[styles.infoItem, { minWidth: '45%' }]}>
           <Text style={[styles.label, { fontSize: 14 * scale }]}>Email</Text>
           {isEditing ? (
@@ -423,7 +443,7 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
           ) : (
             <Text style={[styles.value, { fontSize: 16 * scale }]}>{patientData.email}</Text>
           )}
-                  </View>
+        </View>
         <View style={[styles.infoItem, { width: '100%' }]}>
           <Text style={[styles.label, { fontSize: 14 * scale }]}>Address</Text>
           {isEditing ? (
@@ -435,23 +455,23 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
           ) : (
             <Text style={[styles.value, { fontSize: 16 * scale }]}>{patientData.address}</Text>
           )}
-                  </View>
-                </View>
-              </View>
+        </View>
+      </View>
+    </View>
   );
 
   const renderEncounterInfo = () => (
-            <View style={[styles.section, { marginBottom: 20 * scale }]}>
+    <View style={[styles.section, { marginBottom: 20 * scale }]}>
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { fontSize: 18 * scale }]}>Encounter Information</Text>
-              </View>
+      </View>
       <View style={[styles.infoGrid, { gap: 16 * scale }]}>
         <View style={[styles.infoItem, { minWidth: '45%' }]}>
           <Text style={[styles.label, { fontSize: 14 * scale }]}>Date</Text>
           {isEditing ? (
             <TextInput
               style={styles.input}
-              value={(encounterData.date || new Date()).toISOString().split('T')[0]}
+              value={formatDateToISO(encounterData.date)}
               onChangeText={(text) => {
                 try {
                   const newDate = new Date(text);
@@ -467,10 +487,10 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
             />
           ) : (
             <Text style={[styles.value, { fontSize: 16 * scale }]}>
-              {(encounterData.date || new Date()).toLocaleDateString()}
-                        </Text>
-                      )}
-                    </View>
+              {formatDate(encounterData.date)}
+            </Text>
+          )}
+        </View>
         <View style={[styles.infoItem, { minWidth: '45%' }]}>
           <Text style={[styles.label, { fontSize: 14 * scale }]}>Reason</Text>
           {isEditing ? (
@@ -482,7 +502,7 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
           ) : (
             <Text style={[styles.value, { fontSize: 16 * scale }]}>{encounterData.reason}</Text>
           )}
-                  </View>
+        </View>
         <View style={[styles.infoItem, { minWidth: '45%' }]}>
           <Text style={[styles.label, { fontSize: 14 * scale }]}>Provider</Text>
           {isEditing ? (
@@ -494,7 +514,7 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
           ) : (
             <Text style={[styles.value, { fontSize: 16 * scale }]}>{encounterData.provider}</Text>
           )}
-              </View>
+        </View>
         <View style={[styles.infoItem, { minWidth: '45%' }]}>
           <Text style={[styles.label, { fontSize: 14 * scale }]}>Location</Text>
           {isEditing ? (
@@ -506,7 +526,7 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
           ) : (
             <Text style={[styles.value, { fontSize: 16 * scale }]}>{encounterData.location}</Text>
           )}
-                </View>
+        </View>
         <View style={[styles.infoItem, { width: '100%' }]}>
           <Text style={[styles.label, { fontSize: 14 * scale }]}>Diagnosis</Text>
           {isEditing ? (
@@ -517,8 +537,8 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
             />
           ) : (
             <Text style={[styles.value, { fontSize: 16 * scale }]}>{encounterData.diagnosis.join(', ')}</Text>
-              )}
-            </View>
+          )}
+        </View>
         <View style={[styles.infoItem, { width: '100%' }]}>
           <Text style={[styles.label, { fontSize: 14 * scale }]}>Procedures</Text>
           {isEditing ? (
@@ -539,12 +559,12 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
               value={encounterData.notes}
               onChangeText={(text) => setEncounterData({ ...encounterData, notes: text })}
               multiline
-              />
-            ) : (
+            />
+          ) : (
             <Text style={[styles.value, { fontSize: 16 * scale }]}>{encounterData.notes}</Text>
-            )}
-          </View>
+          )}
         </View>
+      </View>
     </View>
   );
 
@@ -561,13 +581,26 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
           <Text style={styles.title}>Data Review</Text>
           <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
             <Text style={styles.saveButtonText}>Save</Text>
-            </TouchableOpacity>
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
       <ScrollView style={styles.content}>
+        {renderPatientInfo()}
+        {renderEncounterInfo()}
+        {renderBillingCodes()}
+
         {imageUri && (
           <View style={[styles.imageContainer, { marginBottom: 24 * scale }]}>
+            <View style={styles.imageHeader}>
+              <Text style={styles.imageTitle}>Original Document</Text>
+              <TouchableOpacity 
+                onPress={() => setIsImageModalVisible(true)}
+                style={styles.viewFullButton}
+              >
+                <Text style={styles.viewFullButtonText}>View Full Size</Text>
+              </TouchableOpacity>
+            </View>
             <Image
               source={{ uri: imageUri }}
               style={[styles.image, { width: width - 32 * scale }]}
@@ -575,10 +608,6 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
             />
           </View>
         )}
-
-        {renderPatientInfo()}
-        {renderEncounterInfo()}
-        {renderBillingCodes()}
       </ScrollView>
 
       <BillingCodeSelector
@@ -588,6 +617,40 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
         currentDiagnosis={encounterData.diagnosis}
         currentCodes={selectedBillingCodes}
       />
+
+      {/* Full Size Image Modal */}
+      <Modal
+        visible={isImageModalVisible}
+        transparent={true}
+        onRequestClose={() => setIsImageModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Original Document</Text>
+              <TouchableOpacity 
+                onPress={() => setIsImageModalVisible(false)}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeButtonText}>×</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView 
+              style={styles.modalScrollView}
+              contentContainerStyle={styles.modalImageContainer}
+              maximumZoomScale={3}
+              showsVerticalScrollIndicator={false}
+              showsHorizontalScrollIndicator={false}
+            >
+              <Image
+                source={{ uri: imageUri }}
+                style={styles.modalImage}
+                resizeMode="contain"
+              />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -706,32 +769,73 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalHeader: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-  },
-  modalContent: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 16,
-    width: '90%',
-    maxHeight: '80%',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 1,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  closeButtonText: {
+    fontSize: 24,
+    color: '#ffffff',
+  },
+  modalScrollView: {
+    flex: 1,
+    width: '100%',
+  },
+  modalImageContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  imageTitle: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#1a237e',
-    marginBottom: 16,
+  },
+  viewFullButton: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  viewFullButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
   },
   addButton: {
     backgroundColor: '#4CAF50',
@@ -742,62 +846,6 @@ const styles = StyleSheet.create({
   addButtonText: {
     color: '#ffffff',
     fontSize: 14,
-  },
-  suggestionsContainer: {
-    marginBottom: 20,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 12,
-  },
-  suggestionsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1a237e',
-    marginBottom: 16,
-  },
-  suggestionItem: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-  },
-  suggestionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  suggestionCode: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1a237e',
-  },
-  addSuggestionButton: {
-    backgroundColor: '#4CAF50',
-    padding: 8,
-    borderRadius: 4,
-  },
-  addSuggestionText: {
-    color: '#ffffff',
-    fontSize: 14,
-  },
-  suggestionDescription: {
-    fontSize: 14,
-    color: '#000',
-  },
-  suggestionFee: {
-    fontSize: 14,
-    color: '#666',
-  },
-  suggestionConfidence: {
-    fontSize: 12,
-    color: '#666',
-  },
-  suggestionReasoning: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
   },
   billingCode: {
     backgroundColor: '#f8f9fa',

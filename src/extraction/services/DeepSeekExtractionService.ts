@@ -3,6 +3,8 @@ import { PatientData } from '../models/PatientData';
 import { EncounterData } from '../models/EncounterData';
 import { PatientDataBuilder } from '../builders/PatientDataBuilder';
 import { EncounterDataBuilder } from '../builders/EncounterDataBuilder';
+import { BillingCode, BillingCodeSuggestion } from '../../billing/models/BillingCode';
+import { BILLING_CATEGORIES, BILLING_MODIFIERS } from '../models/BillingCodes';
 import config from '../../utils/config';
 
 interface DeepSeekResponse {
@@ -24,6 +26,21 @@ interface DeepSeekResponse {
     provider?: string;
     location?: string;
   };
+  billingSuggestions: {
+    codes: Array<{
+      code: string;
+      description: string;
+      fee: number;
+      category: string;
+      confidence: number;
+      reasoning: string;
+      modifiers?: Array<{
+        code: string;
+        name: string;
+        multiplier: number;
+      }>;
+    }>;
+  };
   confidence: number;
 }
 
@@ -31,6 +48,8 @@ export class DeepSeekExtractionService {
   private static instance: DeepSeekExtractionService;
   private apiKey: string;
   private apiUrl: string;
+  private lastResponse: DeepSeekResponse | null = null;
+  private lastText: string | null = null;
 
   private constructor() {
     this.apiKey = config.deepseekApiKey;
@@ -46,7 +65,14 @@ export class DeepSeekExtractionService {
 
   private async callDeepSeekAPI(text: string): Promise<DeepSeekResponse> {
     try {
-      console.log('Calling DeepSeek API with text:', text.substring(0, 200) + '...');
+      // Return cached response if available and text matches
+      if (this.lastResponse && this.lastText === text) {
+        console.log('Using cached DeepSeek API response');
+        return this.lastResponse;
+      }
+
+      const startTime = performance.now();
+      console.log('Calling DeepSeek API...');
       
       const response = await fetch(this.apiUrl, {
         method: 'POST',
@@ -59,8 +85,13 @@ export class DeepSeekExtractionService {
           messages: [
             {
               role: 'system',
-              content: `You are a medical document analysis assistant. Extract structured information from the following medical document text. 
-              Return a JSON object with patientInfo and encounterInfo sections. Be precise and maintain medical terminology.
+              content: `You are a medical document analysis assistant. Extract structured information from the following medical document text and suggest appropriate billing codes.
+              Use the following reference documents for accurate billing:
+              - Medical Price List 2024-01 (hlth-somb-medical-price-list-2024-01)
+              - Medical Procedure List 2024-01 (hlth-somb-medical-procedure-list-2024-01)
+              - Fee Modifier Definitions 2024-01 (hlth-somb-fee-modifier-definitions-2024-01)
+              
+              Return a JSON object with patientInfo, encounterInfo, and billingSuggestions sections. Be precise and maintain medical terminology.
               Format the response as a valid JSON object with the following structure:
               {
                 "patientInfo": {
@@ -81,6 +112,25 @@ export class DeepSeekExtractionService {
                   "provider": string,
                   "location": string
                 },
+                "billingSuggestions": {
+                  "codes": [
+                    {
+                      "code": string,
+                      "description": string,
+                      "fee": number,
+                      "category": string,
+                      "confidence": number,
+                      "reasoning": string,
+                      "modifiers": [
+                        {
+                          "code": string,
+                          "name": string,
+                          "multiplier": number
+                        }
+                      ]
+                    }
+                  ]
+                },
                 "confidence": number
               }`
             },
@@ -100,46 +150,45 @@ export class DeepSeekExtractionService {
       }
 
       const data = await response.json();
-      console.log('DeepSeek API Response:', {
-        status: response.status,
-        statusText: response.statusText,
-        data: data.choices[0].message.content
-      });
+      const endTime = performance.now();
+      const duration = endTime - startTime;
       
-      return JSON.parse(data.choices[0].message.content);
+      const parsedResponse = JSON.parse(data.choices[0].message.content);
+      
+      // Cache the response
+      this.lastResponse = parsedResponse;
+      this.lastText = text;
+      
+      console.log(`DeepSeek API completed in ${duration.toFixed(2)}ms`);
+      return parsedResponse;
     } catch (error) {
-      console.error('Error calling DeepSeek API:', error);
+      console.error('DeepSeek API error:', error);
       throw error;
     }
   }
 
-  public async extractPatientData(ocrResult: OCRResult): Promise<PatientData> {
+  public async extractAllData(ocrResult: OCRResult): Promise<{
+    patientData: PatientData;
+    encounterData: EncounterData;
+    billingSuggestions: BillingCodeSuggestion[];
+  }> {
     try {
-      console.log('Extracting patient data from OCR result...');
-      
-      // Get structured data from DeepSeek
       const deepSeekResponse = await this.callDeepSeekAPI(ocrResult.rawText);
-      console.log('DeepSeek patient info extraction:', deepSeekResponse.patientInfo);
       
-      // Build patient data using the builder pattern
+      // Extract patient data
       const patientBuilder = new PatientDataBuilder();
-      
       if (deepSeekResponse.patientInfo.fullName) {
         patientBuilder.withFullName(deepSeekResponse.patientInfo.fullName);
       }
-      
       if (deepSeekResponse.patientInfo.dateOfBirth) {
         patientBuilder.withDateOfBirth(deepSeekResponse.patientInfo.dateOfBirth);
       }
-      
       if (deepSeekResponse.patientInfo.gender) {
         patientBuilder.withGender(deepSeekResponse.patientInfo.gender);
       }
-      
       if (deepSeekResponse.patientInfo.healthcareNumber) {
         patientBuilder.withHealthcareNumber(deepSeekResponse.patientInfo.healthcareNumber);
       }
-      
       if (deepSeekResponse.patientInfo.phoneNumber || 
           deepSeekResponse.patientInfo.email || 
           deepSeekResponse.patientInfo.address) {
@@ -149,66 +198,86 @@ export class DeepSeekExtractionService {
           deepSeekResponse.patientInfo.address
         );
       }
-      
-      const result = patientBuilder.build();
-      console.log('Final patient data:', result);
-      return result;
-    } catch (error) {
-      console.error('Error extracting patient data:', error);
-      console.log('Falling back to basic extraction...');
-      // Fallback to basic extraction if AI fails
-      return this.fallbackPatientExtraction(ocrResult);
-    }
-  }
+      const patientData = patientBuilder.build();
+      console.log('Patient data extracted:', {
+        name: patientData.fullName,
+        dob: patientData.dateOfBirth,
+        hasContactInfo: !!(patientData.phoneNumber || patientData.email || patientData.address)
+      });
 
-  public async extractEncounterData(ocrResult: OCRResult): Promise<EncounterData> {
-    try {
-      console.log('Extracting encounter data from OCR result...');
-      
-      // Get structured data from DeepSeek
-      const deepSeekResponse = await this.callDeepSeekAPI(ocrResult.rawText);
-      console.log('DeepSeek encounter info extraction:', deepSeekResponse.encounterInfo);
-      
-      // Build encounter data using the builder pattern
+      // Extract encounter data
       const encounterBuilder = new EncounterDataBuilder();
-      
       if (deepSeekResponse.encounterInfo.date) {
         encounterBuilder.withDate(deepSeekResponse.encounterInfo.date);
       }
-      
       if (deepSeekResponse.encounterInfo.reason) {
         encounterBuilder.withReason(deepSeekResponse.encounterInfo.reason);
       }
-      
       if (deepSeekResponse.encounterInfo.diagnosis) {
         encounterBuilder.withDiagnosis(deepSeekResponse.encounterInfo.diagnosis);
       }
-      
       if (deepSeekResponse.encounterInfo.procedures) {
         encounterBuilder.withProcedures(deepSeekResponse.encounterInfo.procedures);
       }
-      
       if (deepSeekResponse.encounterInfo.notes) {
         encounterBuilder.withNotes(deepSeekResponse.encounterInfo.notes);
       }
-      
       if (deepSeekResponse.encounterInfo.provider) {
         encounterBuilder.withProvider(deepSeekResponse.encounterInfo.provider);
       }
-      
       if (deepSeekResponse.encounterInfo.location) {
         encounterBuilder.withLocation(deepSeekResponse.encounterInfo.location);
       }
-      
-      const result = encounterBuilder.build();
-      console.log('Final encounter data:', result);
-      return result;
+      const encounterData = encounterBuilder.build();
+      console.log('Encounter data extracted:', {
+        date: encounterData.date,
+        reason: encounterData.reason,
+        diagnosisCount: encounterData.diagnosis?.length || 0,
+        procedureCount: encounterData.procedures?.length || 0
+      });
+
+      // Extract billing suggestions
+      const billingSuggestions = deepSeekResponse.billingSuggestions.codes.map(suggestion => ({
+        code: {
+          code: suggestion.code,
+          description: suggestion.description,
+          fee: suggestion.fee
+        },
+        confidence: suggestion.confidence,
+        reasoning: suggestion.reasoning
+      }));
+      console.log(`Extracted ${billingSuggestions.length} billing code suggestions`);
+
+      return {
+        patientData,
+        encounterData,
+        billingSuggestions
+      };
     } catch (error) {
-      console.error('Error extracting encounter data:', error);
+      console.error('Error extracting data:', error);
       console.log('Falling back to basic extraction...');
-      // Fallback to basic extraction if AI fails
-      return this.fallbackEncounterExtraction(ocrResult);
+      return {
+        patientData: this.fallbackPatientExtraction(ocrResult),
+        encounterData: this.fallbackEncounterExtraction(ocrResult),
+        billingSuggestions: []
+      };
     }
+  }
+
+  // Keep the individual methods for backward compatibility
+  public async extractPatientData(ocrResult: OCRResult): Promise<PatientData> {
+    const { patientData } = await this.extractAllData(ocrResult);
+    return patientData;
+  }
+
+  public async extractEncounterData(ocrResult: OCRResult): Promise<EncounterData> {
+    const { encounterData } = await this.extractAllData(ocrResult);
+    return encounterData;
+  }
+
+  public async suggestBillingCodes(ocrResult: OCRResult): Promise<BillingCodeSuggestion[]> {
+    const { billingSuggestions } = await this.extractAllData(ocrResult);
+    return billingSuggestions;
   }
 
   private fallbackPatientExtraction(ocrResult: OCRResult): PatientData {

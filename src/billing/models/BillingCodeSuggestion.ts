@@ -5,4 +5,5 @@ export interface BillingCodeSuggestion {
   basePrice: number;
   modifier?: string;
   modifiedPrice?: number;
+  reasoning?: string;
 } 

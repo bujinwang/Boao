@@ -3,7 +3,7 @@ export interface PatientData {
   firstName?: string;
   lastName?: string;
   fullName?: string;
-  dateOfBirth?: Date;
+  dateOfBirth?: Date | string;
   gender?: string;
   healthcareNumber?: string;
   address?: string;

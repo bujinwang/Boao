@@ -119,14 +119,6 @@ const Processing: React.FC<ProcessingProps> = ({ navigation, route }) => {
           
           const results = await pipeline.process(imageSource);
           
-          console.log('Pipeline results:', {
-            hasPatientData: !!results.patientData,
-            hasEncounterData: !!results.encounterData,
-            hasBillingCodes: !!results.billingCodeSuggestions,
-            patientData: JSON.stringify(results.patientData),
-            encounterData: JSON.stringify(results.encounterData)
-          });
-          
           if (!results.patientData || !results.encounterData) {
             throw new Error('Pipeline returned incomplete data');
           }
@@ -148,48 +140,32 @@ const Processing: React.FC<ProcessingProps> = ({ navigation, route }) => {
           // If this is the first image and it processed successfully, proceed to data review
           if (i === 0) {
             try {
-              // Create a new encounter record
-              const encounterBuilder = new EncounterDataBuilder();
-              const encounterData = encounterBuilder
-                .withDate(results.encounterData.date || new Date())
-                .withReason(results.encounterData.reason || '')
-                .withDiagnosis(results.encounterData.diagnosis || [])
-                .withProcedures(results.encounterData.procedures || [])
-                .withNotes(results.encounterData.notes || '')
-                .withProvider(results.encounterData.provider || '')
-                .withLocation(results.encounterData.location || '')
-                .build();
+              const patientData = results.patientData;
+              const encounterData = results.encounterData;
+              const billingSuggestions = results.billingCodeSuggestions;
 
-              // Create a new patient record
-              const patientBuilder = new PatientDataBuilder();
-              const patientData = patientBuilder
-                .withFullName(results.patientData.fullName || '')
-                .withDateOfBirth(results.patientData.dateOfBirth || new Date())
-                .withGender(results.patientData.gender || '')
-                .withHealthcareNumber(results.patientData.healthcareNumber || '')
-                .withContactInfo(
-                  results.patientData.phoneNumber || '',
-                  results.patientData.email || '',
-                  results.patientData.address || ''
-                )
-                .build();
+              // Ensure dates are serialized before navigation
+              const serializedPatientData = {
+                ...patientData,
+                dateOfBirth: patientData.dateOfBirth instanceof Date ? patientData.dateOfBirth.toISOString() : patientData.dateOfBirth
+              };
 
-              console.log('Built records:', {
-                patientData,
-                encounterData,
-                billingCodeSuggestions: results.billingCodeSuggestions
-              });
-              
+              const serializedEncounterData = {
+                ...encounterData,
+                date: encounterData.date instanceof Date ? encounterData.date.toISOString() : encounterData.date
+              };
+
+              // Navigate to DataReview with the extracted data
               navigation.navigate('DataReview', {
+                patientData: serializedPatientData,
+                encounterData: serializedEncounterData,
+                billingCodeSuggestions: billingSuggestions,
                 originalImage: updatedImages[i].base64,
                 imageUri: updatedImages[i].uri,
                 batchImages: updatedImages.map(img => ({
                   base64: img.base64,
                   uri: img.uri
-                })),
-                patientData,
-                encounterData,
-                billingCodeSuggestions: results.billingCodeSuggestions
+                }))
               });
               
               return; // Exit after successful navigation

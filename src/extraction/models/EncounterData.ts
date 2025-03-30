@@ -6,7 +6,7 @@ type SimpleBillingCode = Pick<BillingCode, 'code' | 'description' | 'basePrice' 
 export interface EncounterData {
   id?: string;
   patientId?: string;
-  date: Date;
+  date: Date | string;
   reason: string;
   diagnosis: string[];
   procedures: string[];

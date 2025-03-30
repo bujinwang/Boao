@@ -5,6 +5,9 @@ import * as ImagePicker from 'expo-image-picker';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { PatientData } from '../extraction/models/PatientData';
 import { EncounterData } from '../extraction/models/EncounterData';
+import { RootStackParamList } from '../types/navigation';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RouteProp } from '@react-navigation/native';
 
 // Update the logo SVG with a simpler, modern design
 const logoIconSvg = `<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -82,9 +85,12 @@ interface ActivityItem {
   phoneNumber?: string;
 }
 
+type DashboardNavigationProp = StackNavigationProp<RootStackParamList, 'Dashboard'>;
+type DashboardRouteProp = RouteProp<RootStackParamList, 'Dashboard'>;
+
 interface DashboardProps {
-  navigation: any;
-  route: any;
+  navigation: DashboardNavigationProp;
+  route: DashboardRouteProp;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ navigation, route }) => {
@@ -460,10 +466,12 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation, route }) => {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const images = result.assets.map(asset => ({
-          base64: asset.base64,
-          uri: `data:image/jpeg;base64,${asset.base64}`
-        }));
+        const images = result.assets
+          .filter(asset => asset.base64) // Filter out assets without base64
+          .map(asset => ({
+            base64: asset.base64!,
+            uri: `data:image/jpeg;base64,${asset.base64}`
+          }));
         navigation.navigate('Processing', { images });
       }
     } catch (error) {
