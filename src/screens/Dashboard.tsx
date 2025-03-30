@@ -707,9 +707,9 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation, route }) => {
           <View style={styles.logoContainer}>
             <SvgXml xml={logoIconSvg} width={32 * scale} height={32 * scale} />
           </View>
-          <View style={styles.titleContainer}>
-            <Text style={[styles.title, { fontSize: 24 * scale }]}>Boao Medical Billing</Text>
-            <Text style={[styles.copyright, { fontSize: 10 * scale }]}>© 2025 Boao Medical Billing™</Text>
+          <View style={styles.headerContent}>
+            <Text style={[styles.title, { fontSize: 24 * scale }]}>BoMedAI</Text>
+            <Text style={[styles.copyright, { fontSize: 10 * scale }]}>© 2025 BoMedAI™</Text>
           </View>
         </View>
         <View style={styles.headerRight}>
@@ -844,7 +844,7 @@ const styles = StyleSheet.create({
   logoContainer: {
     marginRight: 12,
   },
-  titleContainer: {
+  headerContent: {
     flexDirection: 'column',
   },
   title: {

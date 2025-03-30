@@ -1,4 +1,4 @@
-# Boao Medical Billing
+# BoMedAI
 
 A modern React Native application for medical billing management, built with Expo and TypeScript.
 

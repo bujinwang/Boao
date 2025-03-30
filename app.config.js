@@ -13,7 +13,7 @@ console.log('Loading environment variables in app.config.js:', {
 
 export default {
   expo: {
-    name: "Boao Medical Billing",
+    name: "BoMedAI",
     slug: "boao-medical-billing",
     version: "1.0.0",
     orientation: "portrait",
