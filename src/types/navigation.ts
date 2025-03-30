@@ -1,26 +1,45 @@
+import { OCRResult } from '../ocr/models/OCRTypes';
+import { PatientData } from '../extraction/models/PatientData';
+import { EncounterData } from '../extraction/models/EncounterData';
+
 export type RootStackParamList = {
-  Dashboard: undefined;
+  Dashboard: {
+    savedEncounter?: EncounterData;
+    savedPatient?: PatientData;
+  };
   ImageCapture: {
-    onPhotoTaken: (base64: string) => void;
+    onPhotoTaken: (base64: string, uri: string) => void;
   };
-  DataReview: {
-    originalImage?: string;
-    imageUri?: string;
-    encounterData?: any;
-    batchImages?: Array<{
-      base64: string;
-      uri: string;
-    }>;
-    currentBatchIndex?: number;
-  };
-  EncounterDetails: {
-    encounterId: string;
-  };
+  ImageImport: undefined;
   Processing: {
     images: Array<{
       base64: string;
       uri: string;
     }>;
+  };
+  DataReview: {
+    originalImage?: string;
+    imageUri?: string;
+    encounterData?: EncounterData;
+    batchImages?: Array<{
+      base64: string;
+      uri: string;
+    }>;
+    currentBatchIndex?: number;
+    ocrResults?: OCRResult[][];
+    patientData?: PatientData;
+    billingCodeSuggestions?: Array<{
+      code: {
+        code: string;
+        description: string;
+        fee: number;
+      };
+      confidence: number;
+      reasoning: string;
+    }>;
+  };
+  EncounterDetails: {
+    encounterId: string;
   };
 };
 

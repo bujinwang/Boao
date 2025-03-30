@@ -4,6 +4,21 @@ import { RootStackParamList } from '../types/navigation';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RouteProp } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ProcessingPipeline } from '../core/services/ProcessingPipeline';
+import { ImageSource } from '../core/models/ImageSource';
+import { OCRResult } from '../ocr/models/OCRTypes';
+import { EncounterDataBuilder } from '../extraction/builders/EncounterDataBuilder';
+import { PatientDataBuilder } from '../extraction/builders/PatientDataBuilder';
+
+type NavigationBillingCodeSuggestion = {
+  code: {
+    code: string;
+    description: string;
+    fee: number;
+  };
+  confidence: number;
+  reasoning: string;
+};
 
 type ProcessingRouteProp = RouteProp<RootStackParamList, 'Processing'>;
 type ProcessingNavigationProp = StackNavigationProp<RootStackParamList, 'Processing'>;
@@ -19,6 +34,10 @@ interface ProcessingImage {
   status: 'pending' | 'processing' | 'completed' | 'error';
   progress: number;
   error?: string;
+  ocrResults?: OCRResult[];
+  patientData?: any;
+  encounterData?: any;
+  billingCodeSuggestions?: NavigationBillingCodeSuggestion[];
 }
 
 const Processing: React.FC<ProcessingProps> = ({ navigation, route }) => {
@@ -32,15 +51,36 @@ const Processing: React.FC<ProcessingProps> = ({ navigation, route }) => {
   const fadeAnim = new Animated.Value(1);
   const scaleAnim = new Animated.Value(1);
   const progressAnim = new Animated.Value(0);
+  const pipeline = ProcessingPipeline.getInstance();
 
   useEffect(() => {
     processImages();
   }, []);
 
-  const updateImageProgress = (index: number, progress: number, status: ProcessingImage['status'] = 'processing') => {
+  const updateImageProgress = (
+    index: number, 
+    progress: number, 
+    status: ProcessingImage['status'] = 'processing', 
+    results?: { 
+      ocrResults?: OCRResult[],
+      patientData?: any,
+      encounterData?: any,
+      billingCodeSuggestions?: NavigationBillingCodeSuggestion[]
+    }
+  ) => {
     setProcessingImages(prev => 
       prev.map((img, idx) => 
-        idx === index ? { ...img, status, progress } : img
+        idx === index 
+          ? { 
+              ...img, 
+              status, 
+              progress,
+              ocrResults: results?.ocrResults,
+              patientData: results?.patientData,
+              encounterData: results?.encounterData,
+              billingCodeSuggestions: results?.billingCodeSuggestions
+            } 
+          : img
       )
     );
 
@@ -54,38 +94,137 @@ const Processing: React.FC<ProcessingProps> = ({ navigation, route }) => {
   const processImages = async () => {
     setIsProcessing(true);
 
-    for (let i = 0; i < processingImages.length; i++) {
-      try {
-        updateImageProgress(i, 0, 'processing');
+    try {
+      const updatedImages = [...processingImages];
+      
+      for (let i = 0; i < updatedImages.length; i++) {
+        console.log(`Processing image ${i}...`);
+        updatedImages[i].status = 'processing';
+        updatedImages[i].progress = 0;
+        setProcessingImages([...updatedImages]);
 
-        // Simulate processing with faster progress updates
-        for (let progress = 0; progress <= 100; progress += 25) {
-          await new Promise(resolve => setTimeout(resolve, 50));
-          updateImageProgress(i, progress);
+        // Create ImageSource object
+        const imageSource: ImageSource = {
+          id: `image-${i}`,
+          data: updatedImages[i].base64,
+          timestamp: new Date(),
+          source: 'file-import'
+        };
+
+        try {
+          // Process image through pipeline
+          console.log('Calling pipeline.process with imageSource:', imageSource.id);
+          updatedImages[i].progress = 25;
+          setProcessingImages([...updatedImages]);
+          
+          const results = await pipeline.process(imageSource);
+          
+          console.log('Pipeline results:', {
+            hasPatientData: !!results.patientData,
+            hasEncounterData: !!results.encounterData,
+            hasBillingCodes: !!results.billingCodeSuggestions,
+            patientData: JSON.stringify(results.patientData),
+            encounterData: JSON.stringify(results.encounterData)
+          });
+          
+          if (!results.patientData || !results.encounterData) {
+            throw new Error('Pipeline returned incomplete data');
+          }
+          
+          // Update image with results
+          updatedImages[i] = {
+            ...updatedImages[i],
+            status: 'completed',
+            progress: 100,
+            patientData: results.patientData,
+            encounterData: results.encounterData,
+            billingCodeSuggestions: results.billingCodeSuggestions
+          };
+          
+          setProcessingImages([...updatedImages]);
+          setCompletedCount(prev => prev + 1);
+          setCurrentIndex(i + 1);
+          
+          // If this is the first image and it processed successfully, proceed to data review
+          if (i === 0) {
+            try {
+              // Create a new encounter record
+              const encounterBuilder = new EncounterDataBuilder();
+              const encounterData = encounterBuilder
+                .withDate(results.encounterData.date || new Date())
+                .withReason(results.encounterData.reason || '')
+                .withDiagnosis(results.encounterData.diagnosis || [])
+                .withProcedures(results.encounterData.procedures || [])
+                .withNotes(results.encounterData.notes || '')
+                .withProvider(results.encounterData.provider || '')
+                .withLocation(results.encounterData.location || '')
+                .build();
+
+              // Create a new patient record
+              const patientBuilder = new PatientDataBuilder();
+              const patientData = patientBuilder
+                .withFullName(results.patientData.fullName || '')
+                .withDateOfBirth(results.patientData.dateOfBirth || new Date())
+                .withGender(results.patientData.gender || '')
+                .withHealthcareNumber(results.patientData.healthcareNumber || '')
+                .withContactInfo(
+                  results.patientData.phoneNumber || '',
+                  results.patientData.email || '',
+                  results.patientData.address || ''
+                )
+                .build();
+
+              console.log('Built records:', {
+                patientData,
+                encounterData,
+                billingCodeSuggestions: results.billingCodeSuggestions
+              });
+              
+              navigation.navigate('DataReview', {
+                originalImage: updatedImages[i].base64,
+                imageUri: updatedImages[i].uri,
+                batchImages: updatedImages.map(img => ({
+                  base64: img.base64,
+                  uri: img.uri
+                })),
+                patientData,
+                encounterData,
+                billingCodeSuggestions: results.billingCodeSuggestions
+              });
+              
+              return; // Exit after successful navigation
+            } catch (error) {
+              console.error('Error building records:', error);
+              throw error;
+            }
+          }
+        } catch (error: any) {
+          console.error(`Error processing image ${i}:`, error);
+          updatedImages[i].status = 'error';
+          updatedImages[i].progress = 0;
+          updatedImages[i].error = error.message || 'An error occurred during processing';
+          setProcessingImages([...updatedImages]);
+          
+          // If this was the first image, show error and stop processing
+          if (i === 0) {
+            throw error;
+          }
         }
-
-        updateImageProgress(i, 100, 'completed');
-        setCompletedCount(prev => prev + 1);
-        setCurrentIndex(i + 1);
-
-      } catch (error) {
-        updateImageProgress(i, 0, 'error');
       }
+    } catch (error) {
+      console.error('Error in processImages:', error);
+      const errorMessage = 'No patient or encounter data available';
+      console.error(errorMessage, {
+        processingImages: processingImages.map(img => ({
+          status: img.status,
+          hasPatientData: !!img.patientData,
+          hasEncounterData: !!img.encounterData,
+          error: img.error
+        }))
+      });
+    } finally {
+      setIsProcessing(false);
     }
-
-    // Quick delay before navigation
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    navigation.navigate('DataReview', {
-      originalImage: processingImages[0].base64,
-      imageUri: processingImages[0].uri,
-      batchImages: processingImages.map(img => ({
-        base64: img.base64,
-        uri: img.uri
-      }))
-    });
-
-    setIsProcessing(false);
   };
 
   const getStatusColor = (status: ProcessingImage['status']): [string, string] => {
@@ -138,6 +277,11 @@ const Processing: React.FC<ProcessingProps> = ({ navigation, route }) => {
                 </View>
                 {image.error && (
                   <Text style={styles.errorText}>{image.error}</Text>
+                )}
+                {image.ocrResults && (
+                  <Text style={styles.ocrText}>
+                    {image.ocrResults.length} text blocks detected
+                  </Text>
                 )}
               </View>
             </View>
@@ -242,6 +386,12 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 14,
     color: '#EA4335',
+    marginTop: 8,
+    fontWeight: '500',
+  },
+  ocrText: {
+    fontSize: 14,
+    color: '#34A853',
     marginTop: 8,
     fontWeight: '500',
   },

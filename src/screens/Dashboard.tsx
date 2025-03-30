@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, useWindowDimensions } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
+import { PatientData } from '../extraction/models/PatientData';
+import { EncounterData } from '../extraction/models/EncounterData';
 
 // Update the logo SVG with a simpler, modern design
 const logoIconSvg = `<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -74,13 +76,18 @@ interface ActivityItem {
   ahn?: string;  // Alberta Health Number
   dateOfBirth?: string;
   hasMatchingRecord?: boolean;  // Whether patient exists in database
+  gender?: string;
+  email?: string;
+  address?: string;
+  phoneNumber?: string;
 }
 
 interface DashboardProps {
   navigation: any;
+  route: any;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
+const Dashboard: React.FC<DashboardProps> = ({ navigation, route }) => {
   const { width, height } = useWindowDimensions();
   const isSmallScreen = width < 375;
   const isMediumScreen = width >= 375 && width < 428;
@@ -97,6 +104,10 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
       date: '10/15/2023',
       ahn: '1234-5678-9012-3456',
       dateOfBirth: '1980-01-15',
+      gender: 'Male',
+      email: 'john.doe@email.com',
+      address: '123 Main St, Edmonton, AB T5J 2N9',
+      phoneNumber: '(780) 555-0123',
       billingCodes: [
         {
           code: 'E11.9',
@@ -127,6 +138,10 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
       date: '10/14/2023',
       ahn: '2345-6789-0123-4567',
       dateOfBirth: '1975-03-22',
+      gender: 'Female',
+      email: 'sarah.j@email.com',
+      address: '456 Oak Ave, Calgary, AB T2P 1J9',
+      phoneNumber: '(403) 555-0456',
       billingCodes: [
         {
           code: 'I10',
@@ -319,6 +334,73 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
     }
   ]);
 
+  // Handle saved encounter from DataReview
+  useEffect(() => {
+    if (route.params?.savedEncounter && route.params?.savedPatient) {
+      const { savedEncounter, savedPatient } = route.params;
+      
+      // Helper function to safely format date
+      const formatDate = (date: Date | string | undefined): string => {
+        try {
+          if (!date) return new Date().toLocaleDateString();
+          if (date instanceof Date) return date.toLocaleDateString();
+          const parsedDate = new Date(date);
+          if (isNaN(parsedDate.getTime())) {
+            console.warn('Invalid date:', date);
+            return new Date().toLocaleDateString();
+          }
+          return parsedDate.toLocaleDateString();
+        } catch (error) {
+          console.error('Error formatting date:', error);
+          return new Date().toLocaleDateString();
+        }
+      };
+
+      // Helper function to safely format date for ISO string
+      const formatDateToISO = (date: Date | string | undefined): string => {
+        try {
+          if (!date) return new Date().toISOString().split('T')[0];
+          if (date instanceof Date) return date.toISOString().split('T')[0];
+          const parsedDate = new Date(date);
+          if (isNaN(parsedDate.getTime())) {
+            console.warn('Invalid date:', date);
+            return new Date().toISOString().split('T')[0];
+          }
+          return parsedDate.toISOString().split('T')[0];
+        } catch (error) {
+          console.error('Error formatting date to ISO:', error);
+          return new Date().toISOString().split('T')[0];
+        }
+      };
+
+      // Create a new activity item from the saved data
+      const newActivityItem: ActivityItem = {
+        id: Date.now().toString(), // Generate a unique ID
+        patientName: savedPatient.fullName || '',
+        date: formatDate(savedEncounter.date),
+        ahn: savedPatient.healthcareNumber || '',
+        dateOfBirth: formatDateToISO(savedPatient.dateOfBirth),
+        gender: savedPatient.gender || '',
+        email: savedPatient.email || '',
+        address: savedPatient.address || '',
+        phoneNumber: savedPatient.phoneNumber || '',
+        billingCodes: savedEncounter.billingCodes || [],
+        status: savedEncounter.status === 'complete' ? 'confirmed' : 'pending',
+        diagnosis: savedEncounter.diagnosis || [],
+        procedures: savedEncounter.procedures || [],
+        reason: savedEncounter.reason || '',
+        totalAmount: savedEncounter.totalAmount || 0,
+        hasMatchingRecord: true,
+      };
+
+      // Add the new activity item to the beginning of the list
+      setActivityItems(prevItems => [newActivityItem, ...prevItems]);
+
+      // Clear the route params to prevent duplicate additions
+      navigation.setParams({ savedEncounter: undefined, savedPatient: undefined });
+    }
+  }, [route.params?.savedEncounter, route.params?.savedPatient]);
+
   const handleCapturePress = () => {
     navigation.navigate('ImageCapture', {
       onPhotoTaken: (base64: string) => {
@@ -391,7 +473,51 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
   };
 
   const handleActivityPress = (item: ActivityItem) => {
-    navigation.navigate('DataReview', { encounterData: item });
+    // Create patient data from the activity item
+    const patientData: PatientData = {
+      fullName: item.patientName,
+      firstName: item.patientName.split(' ')[0],
+      lastName: item.patientName.split(' ').slice(1).join(' '),
+      dateOfBirth: item.dateOfBirth 
+        ? new Date(item.dateOfBirth)
+        : new Date(),
+      healthcareNumber: item.ahn || '',
+      gender: item.gender || '',
+      address: item.address || '',
+      phoneNumber: item.phoneNumber || '',
+      email: item.email || ''
+    };
+
+    // Create encounter data from the activity item
+    const encounterData: EncounterData = {
+      date: item.date 
+        ? new Date(item.date)
+        : new Date(),
+      reason: item.reason,
+      diagnosis: item.diagnosis,
+      procedures: item.procedures,
+      notes: '',  // Add if available in ActivityItem
+      provider: '', // Add if available in ActivityItem
+      location: '', // Add if available in ActivityItem
+      billingCodes: item.billingCodes,
+      totalAmount: item.totalAmount,
+      status: item.status === 'confirmed' ? 'complete' : 'pending',
+    };
+
+    // Navigate to DataReview with all necessary data
+    navigation.navigate('DataReview', {
+      encounterData,
+      patientData,
+      billingCodeSuggestions: item.billingCodes.map(code => ({
+        code: {
+          code: code.code,
+          description: code.description,
+          fee: code.basePrice,
+        },
+        confidence: 1, // Since these are existing codes
+        reasoning: 'Existing billing code from encounter',
+      })),
+    });
   };
 
   const handleApprove = (id: string) => {
@@ -442,16 +568,28 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
   };
 
   const calculateAge = (dateOfBirth: string): number => {
-    const today = new Date();
-    const birthDate = new Date(dateOfBirth);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
+    try {
+      const today = new Date();
+      const birthDate = new Date(dateOfBirth);
+      
+      // Check if the date is valid
+      if (isNaN(birthDate.getTime())) {
+        console.warn('Invalid date of birth:', dateOfBirth);
+        return 0;
+      }
+
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      
+      return age;
+    } catch (error) {
+      console.error('Error calculating age:', error);
+      return 0;
     }
-    
-    return age;
   };
 
   const renderRightActions = (item: ActivityItem) => {

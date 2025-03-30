@@ -1,773 +1,867 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput, Alert, useWindowDimensions } from 'react-native';
-import { PatientData } from '../extraction/models/PatientData'; // Corrected path
-import { EncounterData } from '../extraction/models/EncounterData'; // Corrected path
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput, Alert, useWindowDimensions, SafeAreaView, Modal, FlatList } from 'react-native';
+import { PatientData } from '../extraction/models/PatientData';
+import { EncounterData } from '../extraction/models/EncounterData';
+import { OCRResult } from '../ocr/models/OCRTypes';
+import { BillingCodeSuggestion } from '../billing/models/BillingCodeSuggestion';
+import { BillingCode, BILLING_CATEGORIES } from '../extraction/models/BillingCodes';
+import { LinearGradient } from 'expo-linear-gradient';
+import { RootStackParamList } from '../types/navigation';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RouteProp } from '@react-navigation/native';
 import BillingCodeSelector from '../components/BillingCodeSelector';
-import { BillingCode } from '../extraction/models/BillingCodes'; // Corrected path
+
+type DataReviewRouteProp = RouteProp<RootStackParamList, 'DataReview'>;
+type DataReviewNavigationProp = StackNavigationProp<RootStackParamList, 'DataReview'>;
 
 interface DataReviewProps {
-  navigation: any;
-  route?: any;
-  patientData?: PatientData;
-  encounterData?: EncounterData;
-  originalImage?: string;
-  imageUri?: string;
-  batchImages?: Array<{
-    base64: string;
-    uri: string;
-  }>;
-  currentBatchIndex?: number;
+  navigation: DataReviewNavigationProp;
+  route: DataReviewRouteProp;
 }
 
-type ModifierType = {
-  name: string;
-  multiplier: number;
-};
+interface NavigationBillingCodeSuggestion {
+  code: {
+    code: string;
+    description: string;
+    fee: number;
+  };
+  confidence: number;
+  reasoning: string;
+}
 
-type ModifiersType = {
-  [key: string]: ModifierType;
-};
-
-const MODIFIERS: ModifiersType = {
-  'CMGP': { name: 'Comprehensive General Practice', multiplier: 1.20 },
-  'CALL': { name: 'After Hours Call', multiplier: 1.25 },
-  'COMP': { name: 'Complex Care', multiplier: 1.35 },
-  'URGN': { name: 'Urgent Care', multiplier: 1.30 },
-};
-
-const TABLET_BREAKPOINT = 768; // Width threshold for tablet/desktop layout
-
-const DataReview: React.FC<DataReviewProps> = ({
-  navigation,
-  route,
-  patientData: initialPatientData = {
-    fullName: 'John Doe',
-    dateOfBirth: new Date('1980-01-15'),
-    gender: 'Male',
-    healthcareNumber: '123456789',
-  },
-  encounterData: initialEncounterData = {
-    date: new Date('2023-06-10'),
-    reason: 'Annual physical examination',
-    diagnosis: ['Hypertension', 'Type 2 Diabetes'],
-    procedures: ['Comprehensive assessment'],
-    billingCodes: [
-      {
-        code: 'E11.9',
-        description: 'Type 2 diabetes without complications',
-        basePrice: 85.50,
-        modifier: 'CMGP',
-        modifiedPrice: 102.60
-      }
-    ],
-    totalAmount: 102.60,
-    status: 'pending'
-  },
-  originalImage: initialOriginalImage,
-  imageUri: initialImageUri,
-  batchImages,
-  currentBatchIndex = 0,
-}) => {
+const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
+  const { originalImage, imageUri, batchImages, patientData: initialPatientData, encounterData: initialEncounterData, billingCodeSuggestions } = route.params;
   const { width } = useWindowDimensions();
-  const isTablet = width >= TABLET_BREAKPOINT;
-  const scale = width < 375 ? 0.9 : width < 428 ? 1 : 1.1; // Define scale factor
-  const [editedPatientData, setEditedPatientData] = useState<PatientData>(initialPatientData);
-  const [editedEncounterData, setEncounterData] = useState<EncounterData>(initialEncounterData);
-  const [localImage] = useState<string | null>(initialImageUri || initialOriginalImage || null);
-  const [showBillingSelector, setShowBillingSelector] = useState(false);
-  const [selectedBillingCodes, setSelectedBillingCodes] = useState<BillingCode[]>(
-    (initialEncounterData.billingCodes || []).map(code => ({
+  const scale = width < 375 ? 0.9 : width < 428 ? 1 : 1.1;
+
+  // Add logging to debug data passing
+  useEffect(() => {
+    console.log('Initial Patient Data:', initialPatientData);
+    console.log('Initial Encounter Data:', initialEncounterData);
+    console.log('Billing Code Suggestions:', billingCodeSuggestions);
+    
+    // Log date of birth specifically
+    if (initialPatientData?.dateOfBirth) {
+      console.log('Date of Birth (raw):', initialPatientData.dateOfBirth);
+      console.log('Date of Birth (type):', typeof initialPatientData.dateOfBirth);
+      console.log('Date of Birth (parsed):', new Date(initialPatientData.dateOfBirth));
+      console.log('Date of Birth (isValid):', !isNaN(new Date(initialPatientData.dateOfBirth).getTime()));
+    }
+  }, [initialPatientData, initialEncounterData, billingCodeSuggestions]);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [isBillingModalVisible, setIsBillingModalVisible] = useState(false);
+
+  // Initialize state with the provided data or defaults
+  const [patientData, setPatientData] = useState<PatientData>(() => {
+    // Parse date of birth carefully
+    let parsedDateOfBirth = new Date();
+    if (initialPatientData?.dateOfBirth) {
+      const dob = new Date(initialPatientData.dateOfBirth);
+      if (!isNaN(dob.getTime())) {
+        parsedDateOfBirth = dob;
+      } else {
+        console.warn('Invalid date of birth:', initialPatientData.dateOfBirth);
+      }
+    }
+
+    return {
+      fullName: initialPatientData?.fullName || '',
+      firstName: initialPatientData?.firstName || '',
+      lastName: initialPatientData?.lastName || '',
+      dateOfBirth: parsedDateOfBirth,
+      healthcareNumber: initialPatientData?.healthcareNumber || '',
+      gender: initialPatientData?.gender || '',
+      address: initialPatientData?.address || '',
+      phoneNumber: initialPatientData?.phoneNumber || '',
+      email: initialPatientData?.email || ''
+    };
+  });
+
+  const [encounterData, setEncounterData] = useState<EncounterData>({
+    date: initialEncounterData?.date 
+      ? new Date(initialEncounterData.date)
+      : new Date(),
+    reason: initialEncounterData?.reason || '',
+    diagnosis: initialEncounterData?.diagnosis || [],
+    procedures: initialEncounterData?.procedures || [],
+    notes: initialEncounterData?.notes || '',
+    provider: initialEncounterData?.provider || '',
+    location: initialEncounterData?.location || '',
+    billingCodes: initialEncounterData?.billingCodes || [],
+    totalAmount: initialEncounterData?.totalAmount || 0,
+    status: initialEncounterData?.status || 'pending'
+  });
+
+  // Initialize billing codes from either encounter data or suggestions
+  const [selectedBillingCodes, setSelectedBillingCodes] = useState<BillingCode[]>(() => {
+    // If we have encounter data with billing codes, it's an existing record from Dashboard
+    if (initialEncounterData?.billingCodes && initialEncounterData.billingCodes.length > 0) {
+      return initialEncounterData.billingCodes.map(code => ({
+        ...code,
+        category: BILLING_CATEGORIES.CONSULTATION,
+        timeBasedModifiers: false,
+        commonDiagnoses: [],
+        relatedCodes: [],
+        timeEstimate: 0,
+        complexity: 'low' as const
+      }));
+    }
+    
+    // For new imports, convert AI suggestions to billing codes
+    if (billingCodeSuggestions && billingCodeSuggestions.length > 0) {
+      return billingCodeSuggestions.map(suggestion => ({
+        code: suggestion.code.code,
+        description: suggestion.code.description,
+        basePrice: suggestion.code.fee,
+        category: BILLING_CATEGORIES.CONSULTATION,
+        timeBasedModifiers: false,
+        commonDiagnoses: [],
+        relatedCodes: [],
+        timeEstimate: 0,
+        complexity: 'low' as const
+      }));
+    }
+
+    return [];
+  });
+
+  // Store AI suggestions separately only for new imports
+  const [aiSuggestions, setAiSuggestions] = useState<NavigationBillingCodeSuggestion[]>(() => {
+    // Only show AI suggestions if this is a new import (no existing billing codes)
+    if (!initialEncounterData?.billingCodes || initialEncounterData.billingCodes.length === 0) {
+      return billingCodeSuggestions || [];
+    }
+    return [];
+  });
+
+  // Update state when route params change
+  useEffect(() => {
+    if (initialPatientData) {
+      // Parse date of birth carefully
+      let parsedDateOfBirth = new Date();
+      if (initialPatientData.dateOfBirth) {
+        const dob = new Date(initialPatientData.dateOfBirth);
+        if (!isNaN(dob.getTime())) {
+          parsedDateOfBirth = dob;
+        } else {
+          console.warn('Invalid date of birth:', initialPatientData.dateOfBirth);
+        }
+      }
+
+      setPatientData({
+        fullName: initialPatientData.fullName || '',
+        firstName: initialPatientData.firstName || '',
+        lastName: initialPatientData.lastName || '',
+        dateOfBirth: parsedDateOfBirth,
+        healthcareNumber: initialPatientData.healthcareNumber || '',
+        gender: initialPatientData.gender || '',
+        address: initialPatientData.address || '',
+        phoneNumber: initialPatientData.phoneNumber || '',
+        email: initialPatientData.email || ''
+      });
+    }
+
+    if (initialEncounterData) {
+      setEncounterData({
+        date: initialEncounterData.date 
+          ? new Date(initialEncounterData.date)
+          : new Date(),
+        reason: initialEncounterData.reason || '',
+        diagnosis: initialEncounterData.diagnosis || [],
+        procedures: initialEncounterData.procedures || [],
+        notes: initialEncounterData.notes || '',
+        provider: initialEncounterData.provider || '',
+        location: initialEncounterData.location || '',
+        billingCodes: initialEncounterData.billingCodes || [],
+        totalAmount: initialEncounterData.totalAmount || 0,
+        status: initialEncounterData.status || 'pending'
+      });
+
+      // Update billing codes only if it's an existing record
+      if (initialEncounterData.billingCodes && initialEncounterData.billingCodes.length > 0) {
+        setSelectedBillingCodes(
+          initialEncounterData.billingCodes.map(code => ({
       ...code,
-      category: 'GENERAL',
-      timeEstimate: 15,
-      complexity: 'medium' as const,
+            category: BILLING_CATEGORIES.CONSULTATION,
+            timeBasedModifiers: false,
       commonDiagnoses: [],
       relatedCodes: [],
+            timeEstimate: 0,
+            complexity: 'low' as const
     }))
   );
+        // Clear AI suggestions for existing records
+        setAiSuggestions([]);
+      } else if (billingCodeSuggestions) {
+        // For new imports, update AI suggestions
+        setAiSuggestions(billingCodeSuggestions);
+      }
+    }
+  }, [initialPatientData, initialEncounterData, billingCodeSuggestions]);
 
-  const handlePatientDataChange = (field: keyof PatientData, value: any) => {
-    setEditedPatientData((prev: PatientData) => ({ // Added explicit type for prev
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handleEncounterDataChange = (field: keyof EncounterData, value: any) => {
-    setEncounterData((prev: EncounterData) => ({ // Added explicit type for prev
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const calculateModifiedPrice = (basePrice: number, modifier?: string) => {
-    if (!modifier || !MODIFIERS[modifier]) return basePrice;
-    return basePrice * MODIFIERS[modifier].multiplier;
-  };
-
-  const handleAddBillingCode = () => {
-    setShowBillingSelector(true);
-  };
-
-  const handleBillingCodeSelect = (code: BillingCode) => {
-    const newBillingCodes = [...selectedBillingCodes, code];
-    setSelectedBillingCodes(newBillingCodes);
-    
-    const totalAmount = newBillingCodes.reduce(
-      (sum, code) => sum + (code.modifiedPrice || code.basePrice),
-      0
-    );
-
-    const simpleBillingCodes = newBillingCodes.map(({ code, description, basePrice, modifier, modifiedPrice, timeBasedModifiers }) => ({
-      code,
-      description,
-      basePrice,
-      modifier,
-      modifiedPrice,
-      timeBasedModifiers,
-    }));
-
-    const updatedEncounterData: EncounterData = {
-      ...initialEncounterData,
-      billingCodes: simpleBillingCodes,
-      totalAmount,
-    };
-    setEncounterData(updatedEncounterData);
-  };
-
-  const handleRemoveBillingCode = (codeToRemove: string) => {
-    const newBillingCodes = selectedBillingCodes.filter(
-      code => code.code !== codeToRemove
-    );
-    setSelectedBillingCodes(newBillingCodes);
-
-    const totalAmount = newBillingCodes.reduce(
-      (sum, code) => sum + (code.modifiedPrice || code.basePrice),
-      0
-    );
-
-    const simpleBillingCodes = newBillingCodes.map(({ code, description, basePrice, modifier, modifiedPrice, timeBasedModifiers }) => ({
-      code,
-      description,
-      basePrice,
-      modifier,
-      modifiedPrice,
-      timeBasedModifiers,
-    }));
-
-    const updatedEncounterData: EncounterData = {
-      ...initialEncounterData,
-      billingCodes: simpleBillingCodes,
-      totalAmount,
-    };
-    setEncounterData(updatedEncounterData);
+  const formatDate = (date: Date): string => {
+    try {
+      return date.toLocaleDateString();
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return new Date().toLocaleDateString();
+    }
   };
 
   const handleSave = () => {
-    // Save data and return to dashboard
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'Dashboard' }],
-    });
+    // Convert billing codes to the correct format
+    const formattedBillingCodes = selectedBillingCodes.map(code => ({
+      code: code.code,
+      description: code.description,
+      basePrice: code.basePrice || 0,
+      modifier: code.modifier,
+      modifiedPrice: code.modifiedPrice
+    }));
+
+    // Calculate total amount
+    const totalAmount = formattedBillingCodes.reduce(
+      (total, code) => total + (code.modifiedPrice || code.basePrice),
+      0
+    );
+
+    // Create the updated encounter
+    const updatedEncounter: EncounterData = {
+      date: encounterData.date,
+      reason: encounterData.reason,
+      diagnosis: encounterData.diagnosis,
+      procedures: encounterData.procedures,
+      notes: encounterData.notes,
+      provider: encounterData.provider,
+      location: encounterData.location,
+      billingCodes: formattedBillingCodes,
+      totalAmount,
+      status: 'pending'
+    };
+
+    // Create the updated patient data
+    const updatedPatient: PatientData = {
+      fullName: patientData.fullName || `${patientData.firstName} ${patientData.lastName}`.trim(),
+      firstName: patientData.firstName || patientData.fullName?.split(' ')[0] || '',
+      lastName: patientData.lastName || patientData.fullName?.split(' ').slice(1).join(' ') || '',
+      dateOfBirth: patientData.dateOfBirth,
+      healthcareNumber: patientData.healthcareNumber,
+      gender: patientData.gender,
+      address: patientData.address,
+      phoneNumber: patientData.phoneNumber,
+      email: patientData.email
+    };
+
+    // In a real app, this would make an API call to save the data
+    Alert.alert(
+      'Success',
+      'Encounter saved successfully',
+      [
+        { 
+          text: 'OK', 
+          onPress: () => {
+            setIsEditing(false);
+            navigation.navigate('Dashboard', {
+              savedEncounter: updatedEncounter,
+              savedPatient: updatedPatient
+            });
+          }
+        }
+      ]
+    );
   };
 
-  const handleCancel = () => {
-    // Navigate to dashboard without saving
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'Dashboard' }],
-    });
+  const handleBillingCodeSelect = (code: BillingCode) => {
+    setSelectedBillingCodes([...selectedBillingCodes, code]);
+    setIsBillingModalVisible(false);
   };
 
-  const formatDate = (date?: Date) => {
-    if (!date) return '';
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
+  const handleRemoveBillingCode = (index: number) => {
+    const newCodes = [...selectedBillingCodes];
+    newCodes.splice(index, 1);
+    setSelectedBillingCodes(newCodes);
   };
 
-  const handleNextImage = () => {
-    if (batchImages && currentBatchIndex < batchImages.length - 1) {
-      navigation.replace('DataReview', {
-        originalImage: batchImages[currentBatchIndex + 1].base64,
-        imageUri: batchImages[currentBatchIndex + 1].uri,
-        batchImages,
-        currentBatchIndex: currentBatchIndex + 1,
-      });
-    }
-  };
-
-  const handlePreviousImage = () => {
-    if (batchImages && currentBatchIndex > 0) {
-      navigation.replace('DataReview', {
-        originalImage: batchImages[currentBatchIndex - 1].base64,
-        imageUri: batchImages[currentBatchIndex - 1].uri,
-        batchImages,
-        currentBatchIndex: currentBatchIndex - 1,
-      });
-    }
-  };
-
-  return (
-    <ScrollView style={styles.container}>
-      <View style={[styles.header, { padding: 20 * scale, paddingTop: 30 * scale }]}>
-        <Text style={[styles.title, { fontSize: 24 * scale }]}>Review Extracted Data</Text>
-        <Text style={[styles.subtitle, { fontSize: 16 * scale, marginTop: 5 * scale }]}>Verify and correct information if needed</Text>
+  const renderBillingCodes = () => (
+    <View style={[styles.section, { marginBottom: 20 * scale }]}>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { fontSize: 18 * scale }]}>Billing Codes</Text>
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={() => {
+            console.log('Opening billing code selector modal');
+            setIsBillingModalVisible(true);
+          }}
+        >
+          <Text style={styles.addButtonText}>Add Code</Text>
+        </TouchableOpacity>
       </View>
 
-      <View style={[styles.contentContainer, { padding: 20 * scale }]}>
-        {/* Form Section */}
-        <View style={[styles.dataContainer, { borderRadius: 12 * scale, padding: 15 * scale, marginBottom: 20 * scale }]}>
-          <ScrollView>
-            {/* Patient Information Section */}
-            <Text style={[styles.sectionTitle, { fontSize: 18 * scale, marginTop: 15 * scale, marginBottom: 15 * scale }]}>Patient Information</Text>
-            
-            <View style={[styles.twoColumnLayout, { marginBottom: 15 * scale }]}>
-              <View style={[styles.column, { marginRight: 10 * scale }]}>
-                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
-                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Patient Name</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
-                      value={editedPatientData.fullName}
-                      onChangeText={(value) => handlePatientDataChange('fullName', value)}
-                    />
-                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
-                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
+      {/* Selected Codes Section */}
+      {selectedBillingCodes.map((code, index) => (
+        <View key={index} style={styles.billingCode}>
+          <View style={styles.billingCodeHeader}>
+            <Text style={styles.billingCodeTitle}>{code.code}</Text>
+            <TouchableOpacity onPress={() => handleRemoveBillingCode(index)}>
+              <Text style={styles.removeButton}>Remove</Text>
                     </TouchableOpacity>
                   </View>
+          <Text style={styles.billingCodeDescription}>{code.description}</Text>
+          <View style={styles.billingCodeDetails}>
+            <Text style={styles.billingCodeFee}>
+              Base Fee: ${code.basePrice.toFixed(2)}
+            </Text>
+            {code.modifier && (
+              <Text style={styles.billingCodeModifier}>
+                Modifier: {code.modifier} (${code.modifiedPrice?.toFixed(2)})
+              </Text>
+            )}
+                  </View>
                 </View>
+      ))}
+      <View style={styles.totalAmount}>
+        <Text style={styles.totalAmountText}>
+          Total Amount: ${selectedBillingCodes.reduce((total, code) => total + (code.modifiedPrice || code.basePrice), 0).toFixed(2)}
+        </Text>
+                  </View>
+                </View>
+  );
 
-                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
-                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Date of Birth</Text>
-                  <View style={styles.inputContainer}>
+  const renderPatientInfo = () => (
+    <View style={[styles.section, { marginBottom: 20 * scale }]}>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { fontSize: 18 * scale }]}>Patient Information</Text>
+        {!isEditing && (
+          <TouchableOpacity onPress={() => setIsEditing(true)} style={styles.editButton}>
+            <Text style={styles.editButtonText}>Edit</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      <View style={[styles.infoGrid, { gap: 16 * scale }]}>
+        <View style={[styles.infoItem, { minWidth: '45%' }]}>
+          <Text style={[styles.label, { fontSize: 14 * scale }]}>Full Name</Text>
+          {isEditing ? (
                     <TextInput
-                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
-                      value={formatDate(editedPatientData.dateOfBirth)}
-                      onChangeText={(value) => {
-                        handlePatientDataChange('dateOfBirth', new Date(value));
-                      }}
-                    />
-                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
-                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
-                    </TouchableOpacity>
+              style={styles.input}
+              value={patientData.fullName}
+              onChangeText={(text) => setPatientData(prev => ({ ...prev, fullName: text }))}
+              placeholder="Enter full name"
+            />
+          ) : (
+            <Text style={[styles.value, { fontSize: 16 * scale }]}>{patientData.fullName}</Text>
+          )}
+                  </View>
+        <View style={[styles.infoItem, { minWidth: '45%' }]}>
+          <Text style={[styles.label, { fontSize: 14 * scale }]}>Date of Birth</Text>
+          {isEditing ? (
+                    <TextInput
+              style={styles.input}
+              value={(patientData.dateOfBirth || new Date()).toISOString().split('T')[0]}
+              onChangeText={(text) => {
+                try {
+                  const newDate = new Date(text);
+                  if (!isNaN(newDate.getTime())) {
+                    setPatientData(prev => ({ ...prev, dateOfBirth: newDate }));
+                  }
+                } catch (error) {
+                  console.error('Invalid date format:', error);
+                }
+              }}
+              placeholder="YYYY-MM-DD"
+              keyboardType="numeric"
+            />
+          ) : (
+            <Text style={[styles.value, { fontSize: 16 * scale }]}>
+              {(patientData.dateOfBirth || new Date()).toLocaleDateString()}
+            </Text>
+          )}
+                  </View>
+        <View style={[styles.infoItem, { minWidth: '45%' }]}>
+          <Text style={[styles.label, { fontSize: 14 * scale }]}>Healthcare Number</Text>
+          {isEditing ? (
+            <TextInput
+              style={styles.input}
+              value={patientData.healthcareNumber}
+              onChangeText={(text) => setPatientData({ ...patientData, healthcareNumber: text })}
+            />
+          ) : (
+            <Text style={[styles.value, { fontSize: 16 * scale }]}>{patientData.healthcareNumber}</Text>
+          )}
+                </View>
+        <View style={[styles.infoItem, { minWidth: '45%' }]}>
+          <Text style={[styles.label, { fontSize: 14 * scale }]}>Gender</Text>
+          {isEditing ? (
+                    <TextInput
+              style={styles.input}
+              value={patientData.gender}
+              onChangeText={(text) => setPatientData({ ...patientData, gender: text })}
+            />
+          ) : (
+            <Text style={[styles.value, { fontSize: 16 * scale }]}>{patientData.gender}</Text>
+          )}
+                  </View>
+        <View style={[styles.infoItem, { minWidth: '45%' }]}>
+          <Text style={[styles.label, { fontSize: 14 * scale }]}>Phone Number</Text>
+          {isEditing ? (
+            <TextInput
+              style={styles.input}
+              value={patientData.phoneNumber}
+              onChangeText={(text) => setPatientData({ ...patientData, phoneNumber: text })}
+            />
+          ) : (
+            <Text style={[styles.value, { fontSize: 16 * scale }]}>{patientData.phoneNumber}</Text>
+          )}
+                </View>
+        <View style={[styles.infoItem, { minWidth: '45%' }]}>
+          <Text style={[styles.label, { fontSize: 14 * scale }]}>Email</Text>
+          {isEditing ? (
+                    <TextInput
+              style={styles.input}
+              value={patientData.email}
+              onChangeText={(text) => setPatientData({ ...patientData, email: text })}
+            />
+          ) : (
+            <Text style={[styles.value, { fontSize: 16 * scale }]}>{patientData.email}</Text>
+          )}
+                  </View>
+        <View style={[styles.infoItem, { width: '100%' }]}>
+          <Text style={[styles.label, { fontSize: 14 * scale }]}>Address</Text>
+          {isEditing ? (
+                    <TextInput
+              style={styles.input}
+              value={patientData.address}
+              onChangeText={(text) => setPatientData({ ...patientData, address: text })}
+            />
+          ) : (
+            <Text style={[styles.value, { fontSize: 16 * scale }]}>{patientData.address}</Text>
+          )}
                   </View>
                 </View>
               </View>
+  );
 
-              <View style={[styles.column, { marginRight: 10 * scale }]}>
-                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
-                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Gender</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
-                      value={editedPatientData.gender}
-                      onChangeText={(value) => handlePatientDataChange('gender', value)}
-                    />
-                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
-                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
-                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Healthcare Number</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
-                      value={editedPatientData.healthcareNumber}
-                      onChangeText={(value) => handlePatientDataChange('healthcareNumber', value)}
-                    />
-                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
-                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </View>
-
-            {/* Encounter Information Section */}
-            <Text style={[styles.sectionTitle, { fontSize: 18 * scale, marginTop: 15 * scale, marginBottom: 15 * scale }]}>Encounter Information</Text>
-            
-            <View style={[styles.twoColumnLayout, { marginBottom: 15 * scale }]}>
-              <View style={[styles.column, { marginRight: 10 * scale }]}>
-                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
-                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Visit Date</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
-                      value={formatDate(editedEncounterData.date)}
-                      onChangeText={(value) => {
-                        handleEncounterDataChange('date', new Date(value));
-                      }}
-                    />
-                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
-                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
-                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Reason for Visit</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
-                      value={editedEncounterData.reason}
-                      onChangeText={(value) => handleEncounterDataChange('reason', value)}
-                    />
-                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
-                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-
-              <View style={[styles.column, { marginRight: 10 * scale }]}>
-                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
-                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Diagnosis</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
-                      value={editedEncounterData.diagnosis?.join(', ')}
-                      onChangeText={(value) => handleEncounterDataChange('diagnosis', value.split(', '))}
-                    />
-                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
-                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
-                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Procedures</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
-                      value={editedEncounterData.procedures?.join(', ')}
-                      onChangeText={(value) => handleEncounterDataChange('procedures', value.split(', '))}
-                    />
-                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
-                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </View>
-
-            {/* Billing Codes Section */}
+  const renderEncounterInfo = () => (
             <View style={[styles.section, { marginBottom: 20 * scale }]}>
-              <View style={[styles.sectionHeader, { marginBottom: 16 * scale, paddingHorizontal: 4 * scale }]}>
-                <Text style={[styles.sectionTitle, { fontSize: 18 * scale, marginTop: 15 * scale, marginBottom: 15 * scale }]}>Billing Codes</Text>
-                <TouchableOpacity
-                  style={[styles.addButton, { paddingVertical: 10 * scale, paddingHorizontal: 16 * scale, borderRadius: 6 * scale }]}
-                  onPress={handleAddBillingCode}
-                >
-                  <Text style={[styles.addButtonText, { fontSize: 15 * scale, marginLeft: 4 * scale }]}>+ Add Code</Text>
-                </TouchableOpacity>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { fontSize: 18 * scale }]}>Encounter Information</Text>
               </View>
-
-              <View style={styles.billingCodesGrid}>
-                {selectedBillingCodes.map((code) => (
-                  <View key={code.code} style={[styles.billingCodeItem, { borderRadius: 8 * scale, padding: 16 * scale, marginBottom: 12 * scale }]}>
-                    <View style={[styles.billingCodeHeader, { marginBottom: 8 * scale }]}>
-                      <Text style={[styles.billingCode, { fontSize: 16 * scale }]}>{code.code}</Text>
-                      <TouchableOpacity
-                        onPress={() => handleRemoveBillingCode(code.code)}
-                        style={[styles.removeButton, { padding: 5 * scale }]}
-                      >
-                        <Text style={[styles.removeButtonText, { fontSize: 20 * scale }]}>×</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={[styles.billingDescription, { fontSize: 14 * scale, marginBottom: 12 * scale }]}>{code.description}</Text>
-                    <View style={[styles.billingDetails, { paddingTop: 12 * scale }]}>
-                      <Text style={[styles.basePrice, { fontSize: 14 * scale }]}>
-                        Base: ${code.basePrice.toFixed(2)}
-                      </Text>
-                      {code.modifier && (
-                        <Text style={[styles.modifier, { fontSize: 14 * scale }]}>
-                          Modifier: {code.modifier}
+      <View style={[styles.infoGrid, { gap: 16 * scale }]}>
+        <View style={[styles.infoItem, { minWidth: '45%' }]}>
+          <Text style={[styles.label, { fontSize: 14 * scale }]}>Date</Text>
+          {isEditing ? (
+            <TextInput
+              style={styles.input}
+              value={(encounterData.date || new Date()).toISOString().split('T')[0]}
+              onChangeText={(text) => {
+                try {
+                  const newDate = new Date(text);
+                  if (!isNaN(newDate.getTime())) {
+                    setEncounterData(prev => ({ ...prev, date: newDate }));
+                  }
+                } catch (error) {
+                  console.error('Invalid date format:', error);
+                }
+              }}
+              placeholder="YYYY-MM-DD"
+              keyboardType="numeric"
+            />
+          ) : (
+            <Text style={[styles.value, { fontSize: 16 * scale }]}>
+              {(encounterData.date || new Date()).toLocaleDateString()}
                         </Text>
                       )}
-                      <Text style={[styles.modifiedPrice, { fontSize: 14 * scale }]}>
-                        Final: ${(code.modifiedPrice || code.basePrice).toFixed(2)}
-                      </Text>
                     </View>
+        <View style={[styles.infoItem, { minWidth: '45%' }]}>
+          <Text style={[styles.label, { fontSize: 14 * scale }]}>Reason</Text>
+          {isEditing ? (
+            <TextInput
+              style={styles.input}
+              value={encounterData.reason}
+              onChangeText={(text) => setEncounterData({ ...encounterData, reason: text })}
+            />
+          ) : (
+            <Text style={[styles.value, { fontSize: 16 * scale }]}>{encounterData.reason}</Text>
+          )}
                   </View>
-                ))}
+        <View style={[styles.infoItem, { minWidth: '45%' }]}>
+          <Text style={[styles.label, { fontSize: 14 * scale }]}>Provider</Text>
+          {isEditing ? (
+            <TextInput
+              style={styles.input}
+              value={encounterData.provider}
+              onChangeText={(text) => setEncounterData({ ...encounterData, provider: text })}
+            />
+          ) : (
+            <Text style={[styles.value, { fontSize: 16 * scale }]}>{encounterData.provider}</Text>
+          )}
               </View>
-
-              {selectedBillingCodes.length > 0 && (
-                <View style={[styles.totalSection, { marginTop: 20 * scale, paddingTop: 16 * scale }]}>
-                  <Text style={[styles.totalLabel, { fontSize: 16 * scale, marginRight: 12 * scale }]}>Total Amount:</Text>
-                  <Text style={[styles.totalAmount, { fontSize: 18 * scale }]}>
-                    ${editedEncounterData.totalAmount?.toFixed(2)}
-                  </Text>
+        <View style={[styles.infoItem, { minWidth: '45%' }]}>
+          <Text style={[styles.label, { fontSize: 14 * scale }]}>Location</Text>
+          {isEditing ? (
+            <TextInput
+              style={styles.input}
+              value={encounterData.location}
+              onChangeText={(text) => setEncounterData({ ...encounterData, location: text })}
+            />
+          ) : (
+            <Text style={[styles.value, { fontSize: 16 * scale }]}>{encounterData.location}</Text>
+          )}
                 </View>
+        <View style={[styles.infoItem, { width: '100%' }]}>
+          <Text style={[styles.label, { fontSize: 14 * scale }]}>Diagnosis</Text>
+          {isEditing ? (
+            <TextInput
+              style={styles.input}
+              value={encounterData.diagnosis.join(', ')}
+              onChangeText={(text) => setEncounterData({ ...encounterData, diagnosis: text.split(',').map(d => d.trim()) })}
+            />
+          ) : (
+            <Text style={[styles.value, { fontSize: 16 * scale }]}>{encounterData.diagnosis.join(', ')}</Text>
               )}
             </View>
-
-            {/* Action Buttons */}
-            <View style={[styles.actionButtonsContainer, { marginTop: 30 * scale, marginBottom: 20 * scale, gap: 15 * scale }]}>
-              <TouchableOpacity style={[styles.saveButton, { paddingVertical: 10 * scale, paddingHorizontal: 20 * scale, borderRadius: 5 * scale }]} onPress={handleSave}>
-                <Text style={[styles.saveButtonText, { fontSize: 16 * scale }]}>Save & Continue</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={[styles.cancelButton, { paddingVertical: 10 * scale, paddingHorizontal: 20 * scale, borderRadius: 5 * scale }]} onPress={handleCancel}>
-                <Text style={[styles.cancelButtonText, { fontSize: 16 * scale }]}>Back</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
+        <View style={[styles.infoItem, { width: '100%' }]}>
+          <Text style={[styles.label, { fontSize: 14 * scale }]}>Procedures</Text>
+          {isEditing ? (
+            <TextInput
+              style={styles.input}
+              value={encounterData.procedures.join(', ')}
+              onChangeText={(text) => setEncounterData({ ...encounterData, procedures: text.split(',').map(p => p.trim()) })}
+            />
+          ) : (
+            <Text style={[styles.value, { fontSize: 16 * scale }]}>{encounterData.procedures.join(', ')}</Text>
+          )}
         </View>
-
-        {/* Original Image Section */}
-        <View style={[styles.imageSection, { borderRadius: 12 * scale, padding: 15 * scale }]}>
-          <Text style={[styles.sectionTitle, { fontSize: 18 * scale, marginTop: 15 * scale, marginBottom: 15 * scale }]}>Original Image</Text>
-          <View style={[styles.imageContainer, { height: 400 * scale, borderRadius: 8 * scale }]}>
-            {localImage ? (
-              <Image 
-                source={{ uri: `data:image/jpeg;base64,${localImage}` }} 
-                style={styles.image} // Assuming image style is just width/height 100%
-                resizeMode="contain"
+        <View style={[styles.infoItem, { width: '100%' }]}>
+          <Text style={[styles.label, { fontSize: 14 * scale }]}>Notes</Text>
+          {isEditing ? (
+            <TextInput
+              style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+              value={encounterData.notes}
+              onChangeText={(text) => setEncounterData({ ...encounterData, notes: text })}
+              multiline
               />
             ) : (
-              <View style={styles.placeholderImage}>
-                <Text style={[styles.placeholderText, { fontSize: 16 * scale }]}>No image available</Text>
-              </View>
+            <Text style={[styles.value, { fontSize: 16 * scale }]}>{encounterData.notes}</Text>
             )}
           </View>
         </View>
+    </View>
+  );
 
-        {/* Batch Navigation */}
-        {batchImages && (
-          <View style={[styles.batchNavigation, { padding: 16 * scale, borderRadius: 8 * scale, marginBottom: 16 * scale }]}>
-            <TouchableOpacity 
-              style={[styles.batchNavButton, { paddingVertical: 8 * scale, paddingHorizontal: 16 * scale, borderRadius: 4 * scale }, currentBatchIndex === 0 && styles.batchNavButtonDisabled]}
-              onPress={handlePreviousImage}
-              disabled={currentBatchIndex === 0}
-            >
-              <Text style={[styles.batchNavButtonText, currentBatchIndex === 0 && styles.batchNavButtonTextDisabled]}>
-                Previous
-              </Text>
+  return (
+    <SafeAreaView style={styles.container}>
+      <LinearGradient
+        colors={['#1a237e', '#0d47a1']}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>Data Review</Text>
+          <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
+            <Text style={styles.saveButtonText}>Save</Text>
             </TouchableOpacity>
-            
-            <Text style={[styles.batchCounter, { fontSize: 14 * scale }]}>
-              Image {currentBatchIndex + 1} of {batchImages.length}
-            </Text>
-            
-            <TouchableOpacity 
-              style={[styles.batchNavButton, { paddingVertical: 8 * scale, paddingHorizontal: 16 * scale, borderRadius: 4 * scale }, currentBatchIndex === batchImages.length - 1 && styles.batchNavButtonDisabled]}
-              onPress={handleNextImage}
-              disabled={currentBatchIndex === batchImages.length - 1}
-            >
-              <Text style={[styles.batchNavButtonText, currentBatchIndex === batchImages.length - 1 && styles.batchNavButtonTextDisabled]}>
-                Next
-              </Text>
-            </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
+      <ScrollView style={styles.content}>
+        {imageUri && (
+          <View style={[styles.imageContainer, { marginBottom: 24 * scale }]}>
+            <Image
+              source={{ uri: imageUri }}
+              style={[styles.image, { width: width - 32 * scale }]}
+              resizeMode="contain"
+            />
           </View>
         )}
-      </View>
+
+        {renderPatientInfo()}
+        {renderEncounterInfo()}
+        {renderBillingCodes()}
+      </ScrollView>
 
       <BillingCodeSelector
-        visible={showBillingSelector}
-        onClose={() => setShowBillingSelector(false)}
+        visible={isBillingModalVisible}
+        onClose={() => setIsBillingModalVisible(false)}
         onSelect={handleBillingCodeSelect}
-        currentDiagnosis={initialEncounterData.diagnosis}
+        currentDiagnosis={encounterData.diagnosis}
         currentCodes={selectedBillingCodes}
       />
-    </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#f5f5f5',
   },
   header: {
-    padding: 20,
-    paddingTop: 30,
+    padding: 16,
+    paddingTop: 48,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   backButton: {
-    marginBottom: 15,
+    padding: 8,
   },
   backButtonText: {
+    color: '#ffffff',
     fontSize: 16,
-    color: '#1976D2',
-    fontWeight: '500',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333333',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666666',
-    marginTop: 5,
-  },
-  contentContainer: {
-    flex: 1,
-    padding: 20,
-  },
-  dataContainer: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    marginBottom: 20,
-  },
-  imageSection: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-  },
-  imageContainer: {
-    width: '100%',
-    height: 400,
-    backgroundColor: '#EEEEEE',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  placeholderImage: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeholderText: {
-    color: '#999999',
-    fontSize: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#1976D2',
-    marginTop: 15,
-    marginBottom: 15,
-  },
-  formField: {
-    marginBottom: 15,
-  },
-  fieldLabel: {
-    fontSize: 14,
-    color: '#666666',
-    marginBottom: 5,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333333',
-    paddingVertical: 8,
-  },
-  editIcon: {
-    padding: 5,
-  },
-  editIconText: {
-    fontSize: 18,
-    color: '#1976D2',
-  },
-  actionButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 30,
-    marginBottom: 20,
-    gap: 15,
+    color: '#ffffff',
   },
   saveButton: {
-    backgroundColor: '#1976D2',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-    flex: 1,
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 4,
   },
   saveButtonText: {
+    color: '#ffffff',
     fontSize: 16,
-    color: 'white',
-    fontWeight: '500',
-    textAlign: 'center',
   },
-  cancelButton: {
-    backgroundColor: 'white',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: '#1976D2',
+  content: {
     flex: 1,
+    padding: 16,
   },
-  cancelButtonText: {
-    fontSize: 16,
-    color: '#1976D2',
-    fontWeight: '500',
-    textAlign: 'center',
+  imageContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  image: {
+    height: 200,
+    borderRadius: 8,
   },
   section: {
-    marginBottom: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
-    paddingHorizontal: 4,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1a237e',
+  },
+  editButton: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  editButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  infoItem: {
+    flex: 1,
+    minWidth: '45%',
+  },
+  label: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  value: {
+    fontSize: 16,
+    color: '#000',
+    fontWeight: '500',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    padding: 8,
+    fontSize: 16,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    width: '90%',
+    maxHeight: '80%',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1a237e',
+    marginBottom: 16,
   },
   addButton: {
-    backgroundColor: '#1976D2',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
   },
   addButtonText: {
-    color: 'white',
-    fontSize: 15,
-    fontWeight: '500',
-    marginLeft: 4,
+    color: '#ffffff',
+    fontSize: 14,
   },
-  billingCodeItem: {
-    width: '100%',
-    backgroundColor: '#f8f9fa',
+  suggestionsContainer: {
+    marginBottom: 20,
+    backgroundColor: '#fff',
     borderRadius: 8,
     padding: 16,
+    marginTop: 12,
+  },
+  suggestionsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1a237e',
+    marginBottom: 16,
+  },
+  suggestionItem: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
     marginBottom: 12,
+  },
+  suggestionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  suggestionCode: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1a237e',
+  },
+  addSuggestionButton: {
+    backgroundColor: '#4CAF50',
+    padding: 8,
+    borderRadius: 4,
+  },
+  addSuggestionText: {
+    color: '#ffffff',
+    fontSize: 14,
+  },
+  suggestionDescription: {
+    fontSize: 14,
+    color: '#000',
+  },
+  suggestionFee: {
+    fontSize: 14,
+    color: '#666',
+  },
+  suggestionConfidence: {
+    fontSize: 12,
+    color: '#666',
+  },
+  suggestionReasoning: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  billingCode: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#e9ecef',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   billingCodeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  billingCode: {
+  billingCodeTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1976D2',
-  },
-  billingDescription: {
-    fontSize: 14,
-    color: '#495057',
-    marginBottom: 12,
+    fontWeight: 'bold',
+    color: '#1a237e',
   },
   removeButton: {
-    padding: 5,
+    color: '#f44336',
+    fontSize: 14,
   },
-  removeButtonText: {
-    fontSize: 20,
-    color: '#F44336',
+  billingCodeDescription: {
+    fontSize: 14,
+    color: '#000',
+    marginBottom: 4,
   },
-  billingDetails: {
+  billingCodeDetails: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
   },
-  basePrice: {
-    flex: 1,
+  billingCodeFee: {
     fontSize: 14,
-    color: '#495057',
+    color: '#666',
   },
-  modifier: {
-    flex: 1,
+  billingCodeModifier: {
     fontSize: 14,
-    color: '#2E7D32',
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  modifiedPrice: {
-    flex: 1,
-    fontSize: 14,
-    color: '#2E7D32',
-    fontWeight: '600',
-    textAlign: 'right',
-  },
-  totalSection: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#dee2e6',
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#212529',
-    marginRight: 12,
+    color: '#666',
   },
   totalAmount: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  totalAmountText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#2E7D32',
+    fontWeight: 'bold',
+    color: '#1a237e',
+    textAlign: 'right',
   },
-  twoColumnLayout: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
+  confidenceScore: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
   },
-  column: {
-    flex: 1,
-    marginRight: 10,
-  },
-  billingCodesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  batchNavigation: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: 'white',
-    borderRadius: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-  },
-  batchNavButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: '#4285F4',
-    borderRadius: 4,
-  },
-  batchNavButtonDisabled: {
-    backgroundColor: '#E8EAED',
-  },
-  batchNavButtonText: {
-    color: 'white',
-    fontWeight: '500',
-  },
-  batchNavButtonTextDisabled: {
-    color: '#9AA0A6',
-  },
-  batchCounter: {
-    fontSize: 14,
-    color: '#5F6368',
-    fontWeight: '500',
+  reasoningNote: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });
 

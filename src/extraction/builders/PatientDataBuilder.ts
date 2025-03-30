@@ -28,8 +28,37 @@ export class PatientDataBuilder {
   
   public withDateOfBirth(dob: string | Date): PatientDataBuilder {
     if (typeof dob === 'string') {
-      // Handle various date formats
-      this.patientData.dateOfBirth = new Date(dob);
+      // Try to parse the date string
+      const parsedDate = new Date(dob);
+      if (!isNaN(parsedDate.getTime())) {
+        this.patientData.dateOfBirth = parsedDate;
+      } else {
+        // Try to parse common date formats
+        const formats = [
+          /(\d{1,2})\/(\d{1,2})\/(\d{4})/, // MM/DD/YYYY
+          /(\d{4})-(\d{1,2})-(\d{1,2})/,    // YYYY-MM-DD
+          /(\d{1,2})-(\d{1,2})-(\d{4})/,    // DD-MM-YYYY
+          /(\d{1,2})\.(\d{1,2})\.(\d{4})/,  // DD.MM.YYYY
+        ];
+
+        for (const format of formats) {
+          const match = dob.match(format);
+          if (match) {
+            const [_, month, day, year] = match;
+            const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+            if (!isNaN(date.getTime())) {
+              this.patientData.dateOfBirth = date;
+              break;
+            }
+          }
+        }
+
+        // If no valid date was found, log a warning
+        if (!this.patientData.dateOfBirth) {
+          console.warn('Could not parse date of birth:', dob);
+          this.patientData.dateOfBirth = new Date(); // Default to current date
+        }
+      }
     } else {
       this.patientData.dateOfBirth = dob;
     }
