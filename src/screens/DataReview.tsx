@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput, Alert, useWindowDimensions } from 'react-native';
-import { PatientData } from '../../extraction/models/PatientData';
-import { EncounterData } from '../../extraction/models/EncounterData';
+import { PatientData } from '../extraction/models/PatientData'; // Corrected path
+import { EncounterData } from '../extraction/models/EncounterData'; // Corrected path
 import BillingCodeSelector from '../components/BillingCodeSelector';
-import { BillingCode } from '../../extraction/models/BillingCodes';
+import { BillingCode } from '../extraction/models/BillingCodes'; // Corrected path
 
 interface DataReviewProps {
   navigation: any;
@@ -70,6 +70,7 @@ const DataReview: React.FC<DataReviewProps> = ({
 }) => {
   const { width } = useWindowDimensions();
   const isTablet = width >= TABLET_BREAKPOINT;
+  const scale = width < 375 ? 0.9 : width < 428 ? 1 : 1.1; // Define scale factor
   const [editedPatientData, setEditedPatientData] = useState<PatientData>(initialPatientData);
   const [editedEncounterData, setEncounterData] = useState<EncounterData>(initialEncounterData);
   const [localImage] = useState<string | null>(initialImageUri || initialOriginalImage || null);
@@ -86,14 +87,14 @@ const DataReview: React.FC<DataReviewProps> = ({
   );
 
   const handlePatientDataChange = (field: keyof PatientData, value: any) => {
-    setEditedPatientData(prev => ({
+    setEditedPatientData((prev: PatientData) => ({ // Added explicit type for prev
       ...prev,
       [field]: value,
     }));
   };
 
   const handleEncounterDataChange = (field: keyof EncounterData, value: any) => {
-    setEncounterData(prev => ({
+    setEncounterData((prev: EncounterData) => ({ // Added explicit type for prev
       ...prev,
       [field]: value,
     }));
@@ -211,76 +212,76 @@ const DataReview: React.FC<DataReviewProps> = ({
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Review Extracted Data</Text>
-        <Text style={styles.subtitle}>Verify and correct information if needed</Text>
+      <View style={[styles.header, { padding: 20 * scale, paddingTop: 30 * scale }]}>
+        <Text style={[styles.title, { fontSize: 24 * scale }]}>Review Extracted Data</Text>
+        <Text style={[styles.subtitle, { fontSize: 16 * scale, marginTop: 5 * scale }]}>Verify and correct information if needed</Text>
       </View>
 
-      <View style={styles.contentContainer}>
+      <View style={[styles.contentContainer, { padding: 20 * scale }]}>
         {/* Form Section */}
-        <View style={styles.dataContainer}>
+        <View style={[styles.dataContainer, { borderRadius: 12 * scale, padding: 15 * scale, marginBottom: 20 * scale }]}>
           <ScrollView>
             {/* Patient Information Section */}
-            <Text style={styles.sectionTitle}>Patient Information</Text>
+            <Text style={[styles.sectionTitle, { fontSize: 18 * scale, marginTop: 15 * scale, marginBottom: 15 * scale }]}>Patient Information</Text>
             
-            <View style={styles.twoColumnLayout}>
-              <View style={styles.column}>
-                <View style={styles.formField}>
-                  <Text style={styles.fieldLabel}>Patient Name</Text>
+            <View style={[styles.twoColumnLayout, { marginBottom: 15 * scale }]}>
+              <View style={[styles.column, { marginRight: 10 * scale }]}>
+                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
+                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Patient Name</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
                       value={editedPatientData.fullName}
                       onChangeText={(value) => handlePatientDataChange('fullName', value)}
                     />
-                    <TouchableOpacity style={styles.editIcon}>
-                      <Text style={styles.editIconText}>✎</Text>
+                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
+                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
 
-                <View style={styles.formField}>
-                  <Text style={styles.fieldLabel}>Date of Birth</Text>
+                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
+                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Date of Birth</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
                       value={formatDate(editedPatientData.dateOfBirth)}
                       onChangeText={(value) => {
                         handlePatientDataChange('dateOfBirth', new Date(value));
                       }}
                     />
-                    <TouchableOpacity style={styles.editIcon}>
-                      <Text style={styles.editIconText}>✎</Text>
+                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
+                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               </View>
 
-              <View style={styles.column}>
-                <View style={styles.formField}>
-                  <Text style={styles.fieldLabel}>Gender</Text>
+              <View style={[styles.column, { marginRight: 10 * scale }]}>
+                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
+                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Gender</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
                       value={editedPatientData.gender}
                       onChangeText={(value) => handlePatientDataChange('gender', value)}
                     />
-                    <TouchableOpacity style={styles.editIcon}>
-                      <Text style={styles.editIconText}>✎</Text>
+                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
+                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
 
-                <View style={styles.formField}>
-                  <Text style={styles.fieldLabel}>Healthcare Number</Text>
+                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
+                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Healthcare Number</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
                       value={editedPatientData.healthcareNumber}
                       onChangeText={(value) => handlePatientDataChange('healthcareNumber', value)}
                     />
-                    <TouchableOpacity style={styles.editIcon}>
-                      <Text style={styles.editIconText}>✎</Text>
+                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
+                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -288,66 +289,66 @@ const DataReview: React.FC<DataReviewProps> = ({
             </View>
 
             {/* Encounter Information Section */}
-            <Text style={styles.sectionTitle}>Encounter Information</Text>
+            <Text style={[styles.sectionTitle, { fontSize: 18 * scale, marginTop: 15 * scale, marginBottom: 15 * scale }]}>Encounter Information</Text>
             
-            <View style={styles.twoColumnLayout}>
-              <View style={styles.column}>
-                <View style={styles.formField}>
-                  <Text style={styles.fieldLabel}>Visit Date</Text>
+            <View style={[styles.twoColumnLayout, { marginBottom: 15 * scale }]}>
+              <View style={[styles.column, { marginRight: 10 * scale }]}>
+                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
+                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Visit Date</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
                       value={formatDate(editedEncounterData.date)}
                       onChangeText={(value) => {
                         handleEncounterDataChange('date', new Date(value));
                       }}
                     />
-                    <TouchableOpacity style={styles.editIcon}>
-                      <Text style={styles.editIconText}>✎</Text>
+                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
+                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
 
-                <View style={styles.formField}>
-                  <Text style={styles.fieldLabel}>Reason for Visit</Text>
+                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
+                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Reason for Visit</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
                       value={editedEncounterData.reason}
                       onChangeText={(value) => handleEncounterDataChange('reason', value)}
                     />
-                    <TouchableOpacity style={styles.editIcon}>
-                      <Text style={styles.editIconText}>✎</Text>
+                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
+                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               </View>
 
-              <View style={styles.column}>
-                <View style={styles.formField}>
-                  <Text style={styles.fieldLabel}>Diagnosis</Text>
+              <View style={[styles.column, { marginRight: 10 * scale }]}>
+                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
+                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Diagnosis</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
                       value={editedEncounterData.diagnosis?.join(', ')}
                       onChangeText={(value) => handleEncounterDataChange('diagnosis', value.split(', '))}
                     />
-                    <TouchableOpacity style={styles.editIcon}>
-                      <Text style={styles.editIconText}>✎</Text>
+                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
+                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
 
-                <View style={styles.formField}>
-                  <Text style={styles.fieldLabel}>Procedures</Text>
+                <View style={[styles.formField, { marginBottom: 15 * scale }]}>
+                  <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Procedures</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { fontSize: 16 * scale, paddingVertical: 8 * scale }]}
                       value={editedEncounterData.procedures?.join(', ')}
                       onChangeText={(value) => handleEncounterDataChange('procedures', value.split(', '))}
                     />
-                    <TouchableOpacity style={styles.editIcon}>
-                      <Text style={styles.editIconText}>✎</Text>
+                    <TouchableOpacity style={[styles.editIcon, { padding: 5 * scale }]}>
+                      <Text style={[styles.editIconText, { fontSize: 18 * scale }]}>✎</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -355,40 +356,40 @@ const DataReview: React.FC<DataReviewProps> = ({
             </View>
 
             {/* Billing Codes Section */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Billing Codes</Text>
+            <View style={[styles.section, { marginBottom: 20 * scale }]}>
+              <View style={[styles.sectionHeader, { marginBottom: 16 * scale, paddingHorizontal: 4 * scale }]}>
+                <Text style={[styles.sectionTitle, { fontSize: 18 * scale, marginTop: 15 * scale, marginBottom: 15 * scale }]}>Billing Codes</Text>
                 <TouchableOpacity
-                  style={styles.addButton}
+                  style={[styles.addButton, { paddingVertical: 10 * scale, paddingHorizontal: 16 * scale, borderRadius: 6 * scale }]}
                   onPress={handleAddBillingCode}
                 >
-                  <Text style={styles.addButtonText}>+ Add Code</Text>
+                  <Text style={[styles.addButtonText, { fontSize: 15 * scale, marginLeft: 4 * scale }]}>+ Add Code</Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.billingCodesGrid}>
                 {selectedBillingCodes.map((code) => (
-                  <View key={code.code} style={styles.billingCodeItem}>
-                    <View style={styles.billingCodeHeader}>
-                      <Text style={styles.billingCode}>{code.code}</Text>
+                  <View key={code.code} style={[styles.billingCodeItem, { borderRadius: 8 * scale, padding: 16 * scale, marginBottom: 12 * scale }]}>
+                    <View style={[styles.billingCodeHeader, { marginBottom: 8 * scale }]}>
+                      <Text style={[styles.billingCode, { fontSize: 16 * scale }]}>{code.code}</Text>
                       <TouchableOpacity
                         onPress={() => handleRemoveBillingCode(code.code)}
-                        style={styles.removeButton}
+                        style={[styles.removeButton, { padding: 5 * scale }]}
                       >
-                        <Text style={styles.removeButtonText}>×</Text>
+                        <Text style={[styles.removeButtonText, { fontSize: 20 * scale }]}>×</Text>
                       </TouchableOpacity>
                     </View>
-                    <Text style={styles.billingDescription}>{code.description}</Text>
-                    <View style={styles.billingDetails}>
-                      <Text style={styles.basePrice}>
+                    <Text style={[styles.billingDescription, { fontSize: 14 * scale, marginBottom: 12 * scale }]}>{code.description}</Text>
+                    <View style={[styles.billingDetails, { paddingTop: 12 * scale }]}>
+                      <Text style={[styles.basePrice, { fontSize: 14 * scale }]}>
                         Base: ${code.basePrice.toFixed(2)}
                       </Text>
                       {code.modifier && (
-                        <Text style={styles.modifier}>
+                        <Text style={[styles.modifier, { fontSize: 14 * scale }]}>
                           Modifier: {code.modifier}
                         </Text>
                       )}
-                      <Text style={styles.modifiedPrice}>
+                      <Text style={[styles.modifiedPrice, { fontSize: 14 * scale }]}>
                         Final: ${(code.modifiedPrice || code.basePrice).toFixed(2)}
                       </Text>
                     </View>
@@ -397,9 +398,9 @@ const DataReview: React.FC<DataReviewProps> = ({
               </View>
 
               {selectedBillingCodes.length > 0 && (
-                <View style={styles.totalSection}>
-                  <Text style={styles.totalLabel}>Total Amount:</Text>
-                  <Text style={styles.totalAmount}>
+                <View style={[styles.totalSection, { marginTop: 20 * scale, paddingTop: 16 * scale }]}>
+                  <Text style={[styles.totalLabel, { fontSize: 16 * scale, marginRight: 12 * scale }]}>Total Amount:</Text>
+                  <Text style={[styles.totalAmount, { fontSize: 18 * scale }]}>
                     ${editedEncounterData.totalAmount?.toFixed(2)}
                   </Text>
                 </View>
@@ -407,31 +408,31 @@ const DataReview: React.FC<DataReviewProps> = ({
             </View>
 
             {/* Action Buttons */}
-            <View style={styles.actionButtonsContainer}>
-              <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                <Text style={styles.saveButtonText}>Save & Continue</Text>
+            <View style={[styles.actionButtonsContainer, { marginTop: 30 * scale, marginBottom: 20 * scale, gap: 15 * scale }]}>
+              <TouchableOpacity style={[styles.saveButton, { paddingVertical: 10 * scale, paddingHorizontal: 20 * scale, borderRadius: 5 * scale }]} onPress={handleSave}>
+                <Text style={[styles.saveButtonText, { fontSize: 16 * scale }]}>Save & Continue</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-                <Text style={styles.cancelButtonText}>Back</Text>
+              <TouchableOpacity style={[styles.cancelButton, { paddingVertical: 10 * scale, paddingHorizontal: 20 * scale, borderRadius: 5 * scale }]} onPress={handleCancel}>
+                <Text style={[styles.cancelButtonText, { fontSize: 16 * scale }]}>Back</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
         </View>
 
         {/* Original Image Section */}
-        <View style={styles.imageSection}>
-          <Text style={styles.sectionTitle}>Original Image</Text>
-          <View style={styles.imageContainer}>
+        <View style={[styles.imageSection, { borderRadius: 12 * scale, padding: 15 * scale }]}>
+          <Text style={[styles.sectionTitle, { fontSize: 18 * scale, marginTop: 15 * scale, marginBottom: 15 * scale }]}>Original Image</Text>
+          <View style={[styles.imageContainer, { height: 400 * scale, borderRadius: 8 * scale }]}>
             {localImage ? (
               <Image 
                 source={{ uri: `data:image/jpeg;base64,${localImage}` }} 
-                style={styles.image}
+                style={styles.image} // Assuming image style is just width/height 100%
                 resizeMode="contain"
               />
             ) : (
               <View style={styles.placeholderImage}>
-                <Text style={styles.placeholderText}>No image available</Text>
+                <Text style={[styles.placeholderText, { fontSize: 16 * scale }]}>No image available</Text>
               </View>
             )}
           </View>
@@ -439,9 +440,9 @@ const DataReview: React.FC<DataReviewProps> = ({
 
         {/* Batch Navigation */}
         {batchImages && (
-          <View style={styles.batchNavigation}>
+          <View style={[styles.batchNavigation, { padding: 16 * scale, borderRadius: 8 * scale, marginBottom: 16 * scale }]}>
             <TouchableOpacity 
-              style={[styles.batchNavButton, currentBatchIndex === 0 && styles.batchNavButtonDisabled]}
+              style={[styles.batchNavButton, { paddingVertical: 8 * scale, paddingHorizontal: 16 * scale, borderRadius: 4 * scale }, currentBatchIndex === 0 && styles.batchNavButtonDisabled]}
               onPress={handlePreviousImage}
               disabled={currentBatchIndex === 0}
             >
@@ -450,12 +451,12 @@ const DataReview: React.FC<DataReviewProps> = ({
               </Text>
             </TouchableOpacity>
             
-            <Text style={styles.batchCounter}>
+            <Text style={[styles.batchCounter, { fontSize: 14 * scale }]}>
               Image {currentBatchIndex + 1} of {batchImages.length}
             </Text>
             
             <TouchableOpacity 
-              style={[styles.batchNavButton, currentBatchIndex === batchImages.length - 1 && styles.batchNavButtonDisabled]}
+              style={[styles.batchNavButton, { paddingVertical: 8 * scale, paddingHorizontal: 16 * scale, borderRadius: 4 * scale }, currentBatchIndex === batchImages.length - 1 && styles.batchNavButtonDisabled]}
               onPress={handleNextImage}
               disabled={currentBatchIndex === batchImages.length - 1}
             >

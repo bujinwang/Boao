@@ -566,31 +566,35 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
             <Text style={[styles.copyright, { fontSize: 10 * scale }]}>© 2025 Boao Medical Billing™</Text>
           </View>
         </View>
-        <View style={[styles.profileIcon, { width: 40 * scale, height: 40 * scale }]}>
-          <Text style={[styles.profileText, { fontSize: 16 * scale }]}>DR</Text>
+        <View style={styles.headerRight}>
+          <View style={styles.quickActionsRow}>
+            <TouchableOpacity 
+              style={[styles.headerActionButton, { backgroundColor: '#4285F4' }]} 
+              onPress={handleCapturePress}
+            >
+              <SvgXml xml={cameraIconSvg} width={20 * scale} height={20 * scale} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.headerActionButton, { backgroundColor: '#34A853' }]} 
+              onPress={handleImportPress}
+            >
+              <SvgXml xml={importIconSvg} width={20 * scale} height={20 * scale} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.headerActionButton, { backgroundColor: '#FBBC05' }]} 
+              onPress={handleBatchPress}
+            >
+              <SvgXml xml={batchIconSvg} width={20 * scale} height={20 * scale} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <View style={[styles.profileIcon, { width: 40 * scale, height: 40 * scale }]}>
+            <Text style={[styles.profileText, { fontSize: 16 * scale }]}>DR</Text>
+          </View>
         </View>
       </View>
 
-      {/* Quick Actions Section */}
-      <View style={[styles.quickActionsContainer, { padding: 20 * scale }]}>
-        <TouchableOpacity style={[styles.quickActionButton, { backgroundColor: '#4285F4' }]} onPress={handleCapturePress}>
-          <SvgXml xml={cameraIconSvg} width={24 * scale} height={24 * scale} color="#fff" />
-          <Text style={[styles.quickActionText, { fontSize: 16 * scale }]}>Capture</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.quickActionButton, { backgroundColor: '#34A853' }]} onPress={handleImportPress}>
-          <SvgXml xml={importIconSvg} width={24 * scale} height={24 * scale} color="#fff" />
-          <Text style={[styles.quickActionText, { fontSize: 16 * scale }]}>Import</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.quickActionButton, { backgroundColor: '#FBBC05' }]} onPress={handleBatchPress}>
-          <SvgXml xml={batchIconSvg} width={24 * scale} height={24 * scale} color="#fff" />
-          <Text style={[styles.quickActionText, { fontSize: 16 * scale }]}>Batch</Text>
-        </TouchableOpacity>
-      </View>
-
       {/* Recent Activity Section */}
-      <View style={[styles.recentActivityContainer, { padding: 20 * scale }]}>
+      <View style={[styles.recentActivityContainer, { padding: 16 * scale }]}>
         <Text style={[styles.sectionTitle, { fontSize: 20 * scale }]}>Recent Encounters</Text>
         <ScrollView 
           style={styles.activityList}
@@ -609,17 +613,33 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation }) => {
       </View>
 
       {/* Statistics Section */}
-      <View style={[styles.statsContainer, { marginTop: 30 * scale }]}>
-        <View style={[styles.statWidget, { padding: 20 * scale }]}>
-          <Text style={[styles.statTitle, { fontSize: 18 * scale }]}>Monthly Billing</Text>
-          <Text style={[styles.statAmount, { fontSize: 32 * scale }]}>$32,450</Text>
-          <Text style={[styles.statComparison, { fontSize: 14 * scale }]}>+12% from last month</Text>
+      <View style={[styles.statsContainer, { paddingHorizontal: 16 * scale }]}>
+        <View style={styles.statWidget}>
+          <View style={styles.statHeader}>
+            <View style={[styles.statIconContainer, { backgroundColor: '#EBF5FF' }]}>
+              <SvgXml xml={billingIconSvg} width={16} height={16} color="#0066FF" />
+            </View>
+            <Text style={styles.statTitle}>Monthly Billing</Text>
+          </View>
+          <View style={styles.statContent}>
+            <Text style={styles.statAmount}>$32,450</Text>
+            <View style={styles.statTrend}>
+              <Text style={styles.trendPositive}>+12%</Text>
+            </View>
+          </View>
         </View>
         
-        <View style={[styles.statWidget, { padding: 20 * scale }]}>
-          <Text style={[styles.statTitle, { fontSize: 18 * scale }]}>Pending Submissions</Text>
-          <Text style={[styles.statAmount, styles.pendingAmount, { fontSize: 32 * scale }]}>12</Text>
-          <Text style={[styles.statText, { fontSize: 14 * scale }]}>Submissions ready</Text>
+        <View style={styles.statWidget}>
+          <View style={styles.statHeader}>
+            <View style={[styles.statIconContainer, { backgroundColor: '#FFF7EB' }]}>
+              <SvgXml xml={pendingIconSvg} width={16} height={16} color="#FF9500" />
+            </View>
+            <Text style={styles.statTitle}>Pending</Text>
+          </View>
+          <View style={styles.statContent}>
+            <Text style={[styles.statAmount, styles.pendingAmount]}>12</Text>
+            <Text style={styles.statSubtitle}>Ready to submit</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -638,6 +658,21 @@ const statementsIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill=
 
 const settingsIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.63-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" fill="currentColor"/>
+</svg>`;
+
+// Add these new SVG icons at the top with other icons
+const billingIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M20 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4ZM20 18H4V6H20V18Z" fill="currentColor"/>
+  <path d="M12 8H8V10H12V8ZM12 12H8V14H12V12ZM12 16H8V18H12V16ZM16 8H14V10H16V8ZM16 12H14V14H16V12ZM16 16H14V18H16V16Z" fill="currentColor"/>
+</svg>`;
+
+const pendingIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="currentColor"/>
+  <path d="M12.5 7H11V13L16.25 16.15L17 14.92L12.5 12.25V7Z" fill="currentColor"/>
+</svg>`;
+
+const trendUpIconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M16 6L18.29 8.29L13.41 13.17L9.41 9.17L2 16.59L3.41 18L9.41 12L13.41 16L19.71 9.71L22 12V6H16Z" fill="currentColor"/>
 </svg>`;
 
 const styles = StyleSheet.create({
@@ -667,13 +702,36 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 26, // Increased size
+    fontWeight: '700', // Bolder
     color: '#1A1A1A',
   },
   copyright: {
     color: '#666666',
     marginTop: 2,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginRight: 12,
+  },
+  headerActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   profileIcon: {
     width: 40,
@@ -688,32 +746,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  quickActionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 20,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-  },
-  quickActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    width: '30%',
-    justifyContent: 'center',
-  },
-  quickActionText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 8,
-  },
   recentActivityContainer: {
     flex: 1,
-    padding: 20,
+    padding: 16,
   },
   sectionTitle: {
     fontSize: 20,
@@ -751,7 +786,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   patientName: {
-    fontSize: 16,
+    fontSize: 17, // Increased size
     fontWeight: '600',
     color: '#1A1A1A',
     marginRight: 8,
@@ -770,17 +805,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666666',
   },
-  headerRight: {
-    alignItems: 'flex-end',
-  },
   totalAmount: {
-    fontSize: 16,
+    fontSize: 17, // Increased size
     fontWeight: '600',
     color: '#2E7D32',
     marginBottom: 4,
   },
   reason: {
-    fontSize: 14,
+    fontSize: 15, // Increased size
     color: '#1A1A1A',
     marginBottom: 4,
   },
@@ -789,7 +821,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   detailText: {
-    fontSize: 13,
+    fontSize: 14, // Increased size
     color: '#666666',
   },
   badges: {
@@ -837,44 +869,63 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    gap: 12,
+    marginBottom: 16,
   },
   statWidget: {
     flex: 1,
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
-    marginHorizontal: 6,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowRadius: 5,
     elevation: 2,
+  },
+  statHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  statIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statTitle: {
     fontSize: 14,
-    color: '#666666',
-    marginBottom: 8,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  statContent: {
+    alignItems: 'flex-start',
   },
   statAmount: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#1976D2',
+    color: '#0F172A',
     marginBottom: 4,
   },
+  statTrend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  trendPositive: {
+    fontSize: 14,
+    color: '#10B981',
+    fontWeight: '500',
+  },
+  statSubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '400',
+  },
   pendingAmount: {
-    color: '#FFC107',
-  },
-  statComparison: {
-    fontSize: 12,
-    color: '#4CAF50',
-  },
-  statText: {
-    fontSize: 12,
-    color: '#666666',
+    color: '#FF9500',
   },
   rightActions: {
     flexDirection: 'row',

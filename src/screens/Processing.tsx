@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, useWindowDimensions, Animated, Easing, SafeAreaView } from 'react-native';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { RootStackParamList } from '../types/navigation';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RouteProp } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';

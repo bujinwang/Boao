@@ -6,10 +6,11 @@ import {
   TouchableOpacity, 
   ScrollView, 
   TextInput,
-  Alert
+  Alert,
+  useWindowDimensions // Import useWindowDimensions
 } from 'react-native';
-import { PatientData } from '../../extraction/models/PatientData';
-import { EncounterData } from '../../extraction/models/EncounterData';
+import { PatientData } from '../extraction/models/PatientData'; // Corrected path
+import { EncounterData } from '../extraction/models/EncounterData'; // Corrected path
 
 interface EncounterDetailsProps {
   navigation: any;
@@ -18,6 +19,8 @@ interface EncounterDetailsProps {
 
 const EncounterDetails: React.FC<EncounterDetailsProps> = ({ navigation, route }) => {
   const { encounterId } = route.params;
+  const { width } = useWindowDimensions(); // Get screen width
+  const scale = width < 375 ? 0.9 : width < 428 ? 1 : 1.1; // Define scale factor
 
   // Mock data - in a real app, this would be fetched from an API
   const [isEditing, setIsEditing] = useState(false);
@@ -86,46 +89,46 @@ const EncounterDetails: React.FC<EncounterDetailsProps> = ({ navigation, route }
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { padding: 20 * scale }]}>
         <TouchableOpacity 
-          style={styles.backButton} 
+          style={[styles.backButton, { padding: 5 * scale }]} 
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={[styles.backButtonText, { fontSize: 16 * scale }]}>← Back</Text>
         </TouchableOpacity>
-        <View style={styles.headerButtons}>
+        <View style={[styles.headerButtons, { gap: 10 * scale }]}>
           {isEditing ? (
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-              <Text style={styles.saveButtonText}>Save</Text>
+            <TouchableOpacity style={[styles.saveButton, { paddingVertical: 8 * scale, paddingHorizontal: 16 * scale, borderRadius: 5 * scale }]} onPress={handleSave}>
+              <Text style={[styles.saveButtonText, { fontSize: 14 * scale }]}>Save</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity style={styles.editButton} onPress={handleEdit}>
-              <Text style={styles.editButtonText}>Edit</Text>
+            <TouchableOpacity style={[styles.editButton, { paddingVertical: 8 * scale, paddingHorizontal: 16 * scale, borderRadius: 5 * scale }]} onPress={handleEdit}>
+              <Text style={[styles.editButtonText, { fontSize: 14 * scale }]}>Edit</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-            <Text style={styles.deleteButtonText}>Delete</Text>
+          <TouchableOpacity style={[styles.deleteButton, { paddingVertical: 8 * scale, paddingHorizontal: 16 * scale, borderRadius: 5 * scale }]} onPress={handleDelete}>
+            <Text style={[styles.deleteButtonText, { fontSize: 14 * scale }]}>Delete</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={[styles.content, { padding: 20 * scale }]}>
         {/* Patient Information */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Patient Information</Text>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Name</Text>
+        <View style={[styles.section, { borderRadius: 12 * scale, padding: 20 * scale, marginBottom: 20 * scale }]}>
+          <Text style={[styles.sectionTitle, { fontSize: 18 * scale, marginBottom: 20 * scale }]}>Patient Information</Text>
+          <View style={[styles.field, { marginBottom: 15 * scale }]}>
+            <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Name</Text>
             <TextInput
-              style={[styles.fieldValue, isEditing && styles.editableField]}
+              style={[styles.fieldValue, { fontSize: 16 * scale, paddingVertical: 8 * scale }, isEditing && [styles.editableField, { borderRadius: 5 * scale, paddingHorizontal: 10 * scale }]]}
               value={patientData.fullName}
               onChangeText={(text) => setPatientData({ ...patientData, fullName: text })}
               editable={isEditing}
             />
           </View>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Date of Birth</Text>
+          <View style={[styles.field, { marginBottom: 15 * scale }]}>
+            <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Date of Birth</Text>
             <TextInput
-              style={[styles.fieldValue, isEditing && styles.editableField]}
+              style={[styles.fieldValue, { fontSize: 16 * scale, paddingVertical: 8 * scale }, isEditing && [styles.editableField, { borderRadius: 5 * scale, paddingHorizontal: 10 * scale }]]}
               value={formatDate(patientData.dateOfBirth)}
               onChangeText={(text) => {
                 const date = new Date(text);
@@ -136,19 +139,19 @@ const EncounterDetails: React.FC<EncounterDetailsProps> = ({ navigation, route }
               editable={isEditing}
             />
           </View>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Gender</Text>
+          <View style={[styles.field, { marginBottom: 15 * scale }]}>
+            <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Gender</Text>
             <TextInput
-              style={[styles.fieldValue, isEditing && styles.editableField]}
+              style={[styles.fieldValue, { fontSize: 16 * scale, paddingVertical: 8 * scale }, isEditing && [styles.editableField, { borderRadius: 5 * scale, paddingHorizontal: 10 * scale }]]}
               value={patientData.gender}
               onChangeText={(text) => setPatientData({ ...patientData, gender: text })}
               editable={isEditing}
             />
           </View>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Healthcare Number</Text>
+          <View style={[styles.field, { marginBottom: 15 * scale }]}>
+            <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Healthcare Number</Text>
             <TextInput
-              style={[styles.fieldValue, isEditing && styles.editableField]}
+              style={[styles.fieldValue, { fontSize: 16 * scale, paddingVertical: 8 * scale }, isEditing && [styles.editableField, { borderRadius: 5 * scale, paddingHorizontal: 10 * scale }]]}
               value={patientData.healthcareNumber}
               onChangeText={(text) => setPatientData({ ...patientData, healthcareNumber: text })}
               editable={isEditing}
@@ -157,12 +160,12 @@ const EncounterDetails: React.FC<EncounterDetailsProps> = ({ navigation, route }
         </View>
 
         {/* Encounter Information */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Encounter Information</Text>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Date</Text>
+        <View style={[styles.section, { borderRadius: 12 * scale, padding: 20 * scale, marginBottom: 20 * scale }]}>
+          <Text style={[styles.sectionTitle, { fontSize: 18 * scale, marginBottom: 20 * scale }]}>Encounter Information</Text>
+          <View style={[styles.field, { marginBottom: 15 * scale }]}>
+            <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Date</Text>
             <TextInput
-              style={[styles.fieldValue, isEditing && styles.editableField]}
+              style={[styles.fieldValue, { fontSize: 16 * scale, paddingVertical: 8 * scale }, isEditing && [styles.editableField, { borderRadius: 5 * scale, paddingHorizontal: 10 * scale }]]}
               value={formatDate(encounterData.date)}
               onChangeText={(text) => {
                 const date = new Date(text);
@@ -173,20 +176,20 @@ const EncounterDetails: React.FC<EncounterDetailsProps> = ({ navigation, route }
               editable={isEditing}
             />
           </View>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Reason</Text>
+          <View style={[styles.field, { marginBottom: 15 * scale }]}>
+            <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Reason</Text>
             <TextInput
-              style={[styles.fieldValue, isEditing && styles.editableField]}
+              style={[styles.fieldValue, { fontSize: 16 * scale, paddingVertical: 8 * scale }, isEditing && [styles.editableField, { borderRadius: 5 * scale, paddingHorizontal: 10 * scale }]]}
               value={encounterData.reason}
               onChangeText={(text) => setEncounterData({ ...encounterData, reason: text })}
               editable={isEditing}
               multiline
             />
           </View>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Diagnosis</Text>
+          <View style={[styles.field, { marginBottom: 15 * scale }]}>
+            <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Diagnosis</Text>
             <TextInput
-              style={[styles.fieldValue, isEditing && styles.editableField]}
+              style={[styles.fieldValue, { fontSize: 16 * scale, paddingVertical: 8 * scale }, isEditing && [styles.editableField, { borderRadius: 5 * scale, paddingHorizontal: 10 * scale }]]}
               value={encounterData.diagnosis?.join(', ') || ''}
               onChangeText={(text) => setEncounterData({ 
                 ...encounterData, 
@@ -196,10 +199,10 @@ const EncounterDetails: React.FC<EncounterDetailsProps> = ({ navigation, route }
               multiline
             />
           </View>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Procedures</Text>
+          <View style={[styles.field, { marginBottom: 15 * scale }]}>
+            <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Procedures</Text>
             <TextInput
-              style={[styles.fieldValue, isEditing && styles.editableField]}
+              style={[styles.fieldValue, { fontSize: 16 * scale, paddingVertical: 8 * scale }, isEditing && [styles.editableField, { borderRadius: 5 * scale, paddingHorizontal: 10 * scale }]]}
               value={encounterData.procedures?.join(', ') || ''}
               onChangeText={(text) => setEncounterData({ 
                 ...encounterData, 
@@ -209,10 +212,10 @@ const EncounterDetails: React.FC<EncounterDetailsProps> = ({ navigation, route }
               multiline
             />
           </View>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Billing Codes</Text>
+          <View style={[styles.field, { marginBottom: 15 * scale }]}>
+            <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Billing Codes</Text>
             <TextInput
-              style={[styles.fieldValue, isEditing && styles.editableField]}
+              style={[styles.fieldValue, { fontSize: 16 * scale, paddingVertical: 8 * scale }, isEditing && [styles.editableField, { borderRadius: 5 * scale, paddingHorizontal: 10 * scale }]]}
               value={encounterData.billingCodes?.map(bc => bc.code).join(', ') || ''}
               onChangeText={(text) => {
                 const codes = text.split(', ').map(code => ({
@@ -227,10 +230,10 @@ const EncounterDetails: React.FC<EncounterDetailsProps> = ({ navigation, route }
               multiline
             />
           </View>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Status</Text>
+          <View style={[styles.field, { marginBottom: 15 * scale }]}>
+            <Text style={[styles.fieldLabel, { fontSize: 14 * scale, marginBottom: 5 * scale }]}>Status</Text>
             <TextInput
-              style={[styles.fieldValue, isEditing && styles.editableField]}
+              style={[styles.fieldValue, { fontSize: 16 * scale, paddingVertical: 8 * scale }, isEditing && [styles.editableField, { borderRadius: 5 * scale, paddingHorizontal: 10 * scale }]]}
               value={encounterData.status || 'pending'}
               onChangeText={(text) => setEncounterData({ 
                 ...encounterData, 
@@ -342,4 +345,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default EncounterDetails; 
+export default EncounterDetails;
