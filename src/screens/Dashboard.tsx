@@ -487,8 +487,8 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation, route }) => {
       firstName: item.patientName.split(' ')[0],
       lastName: item.patientName.split(' ').slice(1).join(' '),
       dateOfBirth: item.dateOfBirth 
-        ? new Date(item.dateOfBirth)
-        : new Date(),
+        ? new Date(item.dateOfBirth).toISOString()
+        : new Date().toISOString(),
       healthcareNumber: item.ahn || '',
       gender: item.gender || '',
       address: item.address || '',
@@ -499,8 +499,8 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation, route }) => {
     // Create encounter data from the activity item
     const encounterData: EncounterData = {
       date: item.date 
-        ? new Date(item.date)
-        : new Date(),
+        ? new Date(item.date).toISOString()
+        : new Date().toISOString(),
       reason: item.reason,
       diagnosis: item.diagnosis,
       procedures: item.procedures,

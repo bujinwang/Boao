@@ -154,10 +154,19 @@ const DataReview: React.FC<DataReviewProps> = ({ navigation, route }) => {
     }
 
     if (initialEncounterData) {
+      // Parse encounter date carefully
+      let parsedEncounterDate = new Date();
+      if (initialEncounterData.date) {
+        const encounterDate = new Date(initialEncounterData.date);
+        if (!isNaN(encounterDate.getTime())) {
+          parsedEncounterDate = encounterDate;
+        } else {
+          console.warn('Invalid encounter date:', initialEncounterData.date);
+        }
+      }
+
       setEncounterData({
-        date: initialEncounterData.date 
-          ? new Date(initialEncounterData.date)
-          : new Date(),
+        date: parsedEncounterDate,
         reason: initialEncounterData.reason || '',
         diagnosis: initialEncounterData.diagnosis || [],
         procedures: initialEncounterData.procedures || [],
