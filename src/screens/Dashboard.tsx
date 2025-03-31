@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, useWindowDimensions, FlatList, SafeAreaView, RefreshControl, Image } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -480,6 +480,47 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation, route }) => {
     }
   };
 
+  const calculateAge = (dateOfBirth: string): number => {
+    try {
+      const today = new Date();
+      const birthDate = new Date(dateOfBirth);
+      
+      // Check if the date is valid
+      if (isNaN(birthDate.getTime())) {
+        console.warn('Invalid date of birth:', dateOfBirth);
+        return 0;
+      }
+
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      
+      return age;
+    } catch (error) {
+      console.error('Error calculating age:', error);
+      return 0;
+    }
+  };
+
+  // Add utility function for parsing dates
+  const parseDate = (dateStr: string): Date => {
+    try {
+      // Handle dates in format "MM/DD/YYYY"
+      if (dateStr.includes('/')) {
+        const [month, day, year] = dateStr.split('/').map(Number);
+        return new Date(year, month - 1, day);
+      }
+      // Handle ISO format dates
+      return new Date(dateStr);
+    } catch (error) {
+      console.error('Error parsing date:', error);
+      return new Date();
+    }
+  };
+
   const handleActivityPress = (item: ActivityItem) => {
     // Create patient data from the activity item
     const patientData: PatientData = {
@@ -496,17 +537,17 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation, route }) => {
       email: item.email || ''
     };
 
-    // Create encounter data from the activity item
+    // Create encounter data from the activity item using the new parseDate function
     const encounterData: EncounterData = {
       date: item.date 
-        ? new Date(item.date).toISOString()
+        ? parseDate(item.date).toISOString()
         : new Date().toISOString(),
       reason: item.reason,
       diagnosis: item.diagnosis,
       procedures: item.procedures,
-      notes: '',  // Add if available in ActivityItem
-      provider: '', // Add if available in ActivityItem
-      location: '', // Add if available in ActivityItem
+      notes: '',
+      provider: '',
+      location: '',
       billingCodes: item.billingCodes,
       totalAmount: item.totalAmount,
       status: item.status === 'confirmed' ? 'complete' : 'pending',
@@ -522,7 +563,7 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation, route }) => {
           description: code.description,
           fee: code.basePrice,
         },
-        confidence: 1, // Since these are existing codes
+        confidence: 1,
         reasoning: 'Existing billing code from encounter',
       })),
     });
@@ -573,31 +614,6 @@ const Dashboard: React.FC<DashboardProps> = ({ navigation, route }) => {
   const handleFlag = (id: string) => {
     // Handle flag in a real app
     console.log('Flag encounter:', id);
-  };
-
-  const calculateAge = (dateOfBirth: string): number => {
-    try {
-      const today = new Date();
-      const birthDate = new Date(dateOfBirth);
-      
-      // Check if the date is valid
-      if (isNaN(birthDate.getTime())) {
-        console.warn('Invalid date of birth:', dateOfBirth);
-        return 0;
-      }
-
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-      
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-      }
-      
-      return age;
-    } catch (error) {
-      console.error('Error calculating age:', error);
-      return 0;
-    }
   };
 
   const renderRightActions = (item: ActivityItem) => {
@@ -932,13 +948,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   patientName: {
-    fontSize: 17, // Increased size
+    fontSize: 18, // Increased font size
     fontWeight: '600',
     color: '#1A1A1A',
     marginRight: 8,
   },
   date: {
-    fontSize: 14,
+    fontSize: 14, // Increased font size
     color: '#666666',
     marginRight: 8,
   },

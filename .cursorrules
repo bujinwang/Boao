@@ -1,78 +1,189 @@
 // React Native Expo TypeScript .cursorrules
 
-// Best practices
+// Project Structure
+const projectStructure = `
+src/
+  assets/           # Static assets (images, fonts, etc.)
+    images/        # Image assets
+    icons/         # Icon assets
+    fonts/         # Font assets
+    animations/    # Animation assets
+  billing/          # Billing-related functionality
+    components/     # Billing-specific components
+    services/      # Billing API services
+    types/         # Billing-related types
+  components/       # Shared UI components
+    common/        # Basic UI components
+    forms/         # Form-related components
+    layout/        # Layout components
+  core/            # Core business logic
+    services/      # Core services
+    hooks/         # Custom hooks
+    constants/     # App constants
+  extraction/      # Data extraction logic
+    models/        # Data models
+    services/      # Extraction services
+  navigation/      # Navigation configuration
+    stacks/        # Stack navigators
+    tabs/          # Tab navigators
+  ocr/            # OCR functionality
+    services/      # OCR services
+    utils/         # OCR utilities
+  screens/         # Screen components
+    auth/          # Authentication screens
+    main/          # Main app screens
+  styles/          # Global styles
+    theme.ts       # Theme configuration
+    typography.ts  # Typography styles
+  types/           # Global TypeScript types
+    api.ts         # API-related types
+    common.ts      # Common types
+    navigation.ts  # Navigation types
+    utils.ts       # Utility types
+  utils/           # Utility functions
+    validation/    # Validation utilities
+    formatting/    # Formatting utilities
+    helpers/       # Helper functions
+`;
+
+// Best Practices
 const bestPractices = [
   "Utilize Expo SDK features and APIs",
   "Implement proper navigation using React Navigation",
   "Use Expo's asset system for images and fonts",
   "Implement proper error handling and crash reporting",
+  "Follow atomic design principles for components",
+  "Use TypeScript for type safety",
+  "Implement proper state management",
+  "Follow SOLID principles",
+  "Write unit tests for critical functionality",
+  "Use proper error boundaries",
 ];
 
-// Folder structure
-const folderStructure = `
-assets/
-src/
-  components/
-  screens/
-  navigation/
-  hooks/
-  utils/
-  services/
-    apis/
-    constants/
-    types/
-App.tsx
-app.json
+// Component Guidelines
+const componentGuidelines = `
+1. Component Structure:
+   - Place components in appropriate subdirectories
+   - Use index.ts for clean exports
+   - Separate styles into styles.ts
+   - Define types in types.ts
+
+2. Naming Conventions:
+   - Use PascalCase for component names
+   - Use camelCase for functions and variables
+   - Prefix custom hooks with 'use'
+   - Suffix context providers with 'Provider'
+
+3. File Organization:
+   - One component per file
+   - Group related components in folders
+   - Keep components focused and single-responsibility
+   - Use barrel exports (index.ts) for clean imports
 `;
 
-// Coding guidelines
-const codingGuidelines = `
-1. Use TypeScript for type safety
-2. Implement proper styling using StyleSheet or styled-components
-3. Utilize Expo's vector icons
-4. Use Expo's secure store for sensitive data
-5. Implement proper offline support
-6. Follow React Native best practices for performance
-7. Use Expo's OTA updates for quick deployments
-8. Use camelCase for variables and functions, PascalCase for components
-9. Prefer named exports for components
-10. Use interfaces for props and state
-11. Avoid using 'any' type; strive for precise types
-12. Use React.FC for functional components with props
-13. Implement responsive design using Flexbox and Expo's useWindowDimensions
-14. Use SafeAreaView for proper screen inset handling
-15. Optimize performance with useMemo and useCallback hooks
-16. Use react-query for data fetching and caching
-17. Implement proper error boundaries and logging
-18. Write unit tests using Jest and React Native Testing Library
-19. Use Expo's localization tools for internationalization
+// TypeScript Guidelines
+const typescriptGuidelines = `
+1. Type Definitions:
+   - Define interfaces for props
+   - Use type aliases for complex types
+   - Avoid using 'any' type
+   - Use proper type inference
+
+2. Type Organization:
+   - Keep types close to their usage
+   - Use shared types for common patterns
+   - Document complex types
+   - Use proper type guards
 `;
 
-// Component structure
-const componentStructure = `
-components/
-  MyComponent/
-    index.tsx
-    styles.ts
-    types.ts
+// State Management
+const stateManagement = `
+1. Local State:
+   - Use useState for simple state
+   - Use useReducer for complex state
+   - Implement proper state updates
+   - Avoid prop drilling
+
+2. Global State:
+   - Use context for theme/auth
+   - Implement proper state persistence
+   - Handle state updates efficiently
+   - Use proper state selectors
 `;
 
-// Example component
-const exampleComponent = `
-import React from 'react';
-import { View, Text } from 'react-native';
-import { MyComponentProps } from './types';
-import { styles } from './styles';
+// Performance Guidelines
+const performanceGuidelines = `
+1. Optimization:
+   - Use React.memo for expensive renders
+   - Implement proper list virtualization
+   - Use proper image optimization
+   - Implement proper caching
 
-const MyComponent: React.FC<MyComponentProps> = ({ title }) => {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
-    </View>
-  );
-};
+2. Code Splitting:
+   - Split code into chunks
+   - Implement lazy loading
+   - Use proper dynamic imports
+   - Optimize bundle size
+`;
 
-export default MyComponent;
+// Testing Guidelines
+const testingGuidelines = `
+1. Test Organization:
+   - Write unit tests for utilities
+   - Test components with React Testing Library
+   - Implement integration tests
+   - Use proper test coverage
+
+2. Test Patterns:
+   - Use proper test descriptions
+   - Implement proper test setup
+   - Use proper test utilities
+   - Follow AAA pattern (Arrange, Act, Assert)
+`;
+
+// Asset Management
+const assetGuidelines = `
+1. Asset Organization:
+   - Organize assets by type (images, icons, fonts, animations)
+   - Use proper asset optimization
+   - Implement proper asset loading strategies
+   - Use type-safe asset references
+
+2. Asset Loading:
+   - Use Promise.all for parallel loading
+   - Implement proper error handling
+   - Use proper asset caching
+   - Optimize asset sizes
+`;
+
+// Navigation Guidelines
+const navigationGuidelines = `
+1. Navigation Structure:
+   - Use proper navigation types
+   - Implement proper navigation guards
+   - Handle deep linking
+   - Use proper navigation events
+
+2. Screen Organization:
+   - Group screens by feature
+   - Implement proper screen transitions
+   - Handle screen lifecycle events
+   - Use proper navigation params
+`;
+
+// API Guidelines
+const apiGuidelines = `
+1. API Structure:
+   - Use proper API types
+   - Implement proper error handling
+   - Use proper request/response interceptors
+   - Handle API caching
+
+2. API Organization:
+   - Group API calls by feature
+   - Use proper API client configuration
+   - Implement proper retry logic
+   - Handle offline scenarios
 `;
 
 // You are an expert in TypeScript, React Native, Expo, and Mobile App Development

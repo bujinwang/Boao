@@ -1,8 +1,11 @@
+import { NavigatorScreenParams } from '@react-navigation/native';
 import { OCRResult } from '../ocr/models/OCRTypes';
 import { PatientData } from '../extraction/models/PatientData';
 import { EncounterData } from '../extraction/models/EncounterData';
 
 export type RootStackParamList = {
+  Auth: NavigatorScreenParams<AuthStackParamList>;
+  Main: NavigatorScreenParams<MainTabParamList>;
   Dashboard: {
     savedEncounter?: EncounterData;
     savedPatient?: PatientData;
@@ -41,6 +44,32 @@ export type RootStackParamList = {
   EncounterDetails: {
     encounterId: string;
   };
+};
+
+export type AuthStackParamList = {
+  Login: undefined;
+  Register: undefined;
+  ForgotPassword: undefined;
+};
+
+export type MainTabParamList = {
+  Dashboard: undefined;
+  Billing: undefined;
+  OCR: undefined;
+  Profile: undefined;
+  Settings: undefined;
+};
+
+export type BillingStackParamList = {
+  BillingList: undefined;
+  BillingDetails: { id: string };
+  BillingHistory: undefined;
+};
+
+export type OCRStackParamList = {
+  OCRList: undefined;
+  OCRDetails: { id: string };
+  OCRHistory: undefined;
 };
 
 export type TabParamList = {
